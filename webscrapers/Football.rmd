@@ -1,0 +1,28 @@
+
+
+
+```{r}
+library(rvest)
+library(stringi)
+library(tidyverse)
+library(glue)
+
+
+
+base_url = 'https://fantasydata.com/nfl/fantasy-football-leaders'
+seasons = c(2017, 2018)
+
+for(x in list(seasons)){
+  url = glue::glue('{base_url}?season={x}&seasontype=1&scope=2&subscope=1&startweek=1&endweek=1&aggregatescope=1&range=1')
+  show(url[1])
+  season_page = read_html(url[1])
+}
+```
+
+We should be able to hit:
+
+ttps://fantasydata.com/FantasyStatsNFL/FantasyStats_Read
+
+with the following params:
+
+sort=FantasyPoints-desc&pageSize=300&group=&filter=&filters.position=1&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=1&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1
