@@ -39,3 +39,5 @@ stats_grid
 
 
 https://fantasydata.com/nfl/fantasy-football-leaders?season=2014&seasontype=1&scope=3&subscope=1&aggregatescope=1&range=3
+
+https://fantasydata.com/nfl/fantasy-football-leaders?position=2&season=2019&seasontype=1&scope=2&subscope=1&startweek=3&endweek=3&aggregatescope=1&range=3
