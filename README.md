@@ -31,3 +31,6 @@
    
   
 https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read
+
+
+https://fantasydata.com/api/api-documentation/nfl
