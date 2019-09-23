@@ -1,30 +1,32 @@
 #################
 # Webscraper for Football Data
-# Author: Sean Kennedy
+# Author: Sean Kennedy and Kevin Thompson
 # Last Updated September 23, 2019
 #################
 
-library(rvest)
-library(stringi)
-library(tidyverse)
-library(glue)
+library(purrr)
+library(rjson)
 
 
 # global variables to be loaded into memory
-ROOT_URL = 'https://fantasydata.com/nfl/fantasy-football-leaders'
-SEASONS = list(c(2017, 2018))
+URL <- "https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=300&group=&filter=&filters.position=1&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=1&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1"
 
 
-#'Retrieve Football Data From Fantasy Data Site
-#'
-#'Input: The root url and a list containing a vector of season years.
-#'Output: Football Data in XML format.
-#'@param root_url a root url to pass into a get request
-#'@param season_list a list object containing a vector of integers corresponding to the years of the desired football seasons 
-getFootballData <- function(root_url = ROOT_URL, seasons_list = SEASONS) {
-  for(x in seasons){
-    url = glue::glue('{base_url}?season={x}&seasontype=1&scope=2&subscope=1&startweek=1&endweek=1&aggregatescope=1&range=1')
-    show(url[1])
-    season_page = read_html(url[1])
-  }
+getFootballData <- function(url){
+  football_players = getFootballPlayersJSON(url = url)
+  football_players = map(football_players, removeColumnsWithWrongLength)
+  football_players = map_df(football_players, as_tibble)
+  return(football_players)
 }
+
+getFootballPlayersJSON <- function(url){
+  json_list = fromJSON(file = url)
+  return(json_list$Data)
+}
+
+removeColumnsWithWrongLength <- function(data){
+  a <- map(data, function(x){if(length(x) == 1){return(x)}})
+  a[sapply(a, is.null)] <- NULL
+  return(a)
+}
+
