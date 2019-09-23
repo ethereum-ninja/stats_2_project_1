@@ -2,7 +2,7 @@
 .Rhistory
 .Rapp.history
 
-# Session Data files (remove this from gitignore when we are ready to turn this in)
+# Session Data files (remove this from gitignore when we are ready to turn this project in)
 .RData
 
 # Example code in package build process
