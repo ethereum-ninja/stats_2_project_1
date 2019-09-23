@@ -4,6 +4,7 @@
 # Last Updated September 23, 2019
 #################
 
+library(tibble)
 library(purrr)
 library(rjson)
 
