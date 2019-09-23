@@ -19,4 +19,3 @@ def logUniform(a=1, b=np.exp(1)):
 
 vals = logUniform(a = 1, b = 100).rvs(size = 1000)
 print(pd.Series(vals).to_string())
-pd.Series(vals).to_csv("~/Development/Retention/analysis/tuning/logUniform/lambdaparams.csv")
