@@ -8,4 +8,4 @@ library(here)
 FOOTBALL_WEBSCRAPER_PATH <- here("src", "webscrapers", "FootballWebscraper.R")
 source(FOOTBALL_WEBSCRAPER_PATH)
 
-rawFootballData <- getFootballData()
+rawFootballData <- getFootballData(url = URL)
