@@ -1,0 +1,56 @@
+
+R version 3.6.1 (2019-07-05) -- "Action of the Toes"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> #################
+> # Webscraper for Football Data
+> # Author: Sean Kennedy and Kevin Thompson
+> # Last Updated September 23, 2019
+> #################
+> 
+> library(tibble)
+> library(purrr)
+> library(rjson)
+> 
+> 
+> # global variables to be loaded into memory
+> URL <- "https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=300&group=&filter=&filters.position=1&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=1&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1"
+> 
+> 
+> getFootballData <- function(url){
++   football_players = getFootballPlayersJSON(url = url)
++   football_players = map(football_players, removeColumnsWithWrongLength)
++   football_players = map_df(football_players, as_tibble)
++   return(football_players)
++ }
+> 
+> getFootballPlayersJSON <- function(url){
++   json_list = fromJSON(file = url)
++   return(json_list$Data)
++ }
+> 
+> removeColumnsWithWrongLength <- function(data){
++   a <- map(data, function(x){if(length(x) == 1){return(x)}})
++   a[sapply(a, is.null)] <- NULL
++   return(a)
++ }
+> 
+> 
+> proc.time()
+   user  system elapsed 
+  0.374   0.145   0.308 

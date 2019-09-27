@@ -1,0 +1,51 @@
+
+R version 3.6.1 (2019-07-05) -- "Action of the Toes"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> ###################
+> # File for Parsing
+> # Author: Kevin Thompson
+> # Last Updated September 26, 2019
+> ###################
+> 
+> library(stringr)
+> 
+> getGameDates <- function(gamedate){
++   date_number = extractDateNumber(gamedate = gamedate)
++   date = convertToDate(extracted_date = date_number)
++   return(date)
++ }
+> 
+> extractDateNumber <- function(gamedate){
++   require(stringr)
++   temp_string = str_extract(gamedate, "\\d+")
++   temp_integer = as.numeric(temp_string)
++   return(temp_integer)
++ }
+> 
+> convertToDate <- function(extracted_date){
++   temp_date <- as.POSIXct(extracted_date/1000, origin="1970-01-01", tz = "America/Chicago")
++   temp_date <- strftime(temp_date, format = "%Y-%m-%d", usetz = FALSE)
++   return(temp_date)
++ }
+> 
+> proc.time()
+   user  system elapsed 
+  0.276   0.158   0.230 

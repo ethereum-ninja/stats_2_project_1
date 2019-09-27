@@ -1,0 +1,89 @@
+
+R version 3.6.1 (2019-07-05) -- "Action of the Toes"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> ###################
+> # Gathers and Preprocesses Scraped Data from Fantasy Data Site
+> # Author: Kevin Thompson
+> # Last Updated September 23, 2019
+> ###################
+> library(here)
+here() starts at /home/kevin/Development/stats_2_project_1
+> library(tibble)
+> library(purrr)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(rjson)
+> library(stringr)
+> library(lubridate)
+
+Attaching package: ‘lubridate’
+
+The following object is masked from ‘package:here’:
+
+    here
+
+The following object is masked from ‘package:base’:
+
+    date
+
+> 
+> rawFootballData <- getFootballData(url = URL)
+> FootballDatawithDates <- rawFootballData
+> FootballDatawithDates$GameDate <- FootballDatawithDates$GameDate %>%
++                                     map_chr(getGameDates) %>%
++                                     as_date()
+> 
+> relevant_positions = c("QB", "RB", "WR")
+> 
+> DataListByPosition <- FootballDatawithDates %>% 
++                         filter(Position %in% relevant_positions) %>%
++                         select(-c(StatSummary)) %>%
++                         group_split(Position)
+> names(DataListByPosition) <- c("QB", "RB", "WR")
+> 
+> 
+> 
+> QBdata <- DataListByPosition$QB
+> WRdata <- DataListByPosition$WR
+> RBdata <- DataListByPosition$RB
+> 
+> 
+> 
+> rm(DataListByPosition, rawFootballData, FOOTBALL_WEBSCRAPER_PATH,
++    relevant_positions, URL, getFootballData, getFootballPlayersJSON,
++    removeColumnsWithWrongLength, FootballDatawithDates)
+Warning message:
+In rm(DataListByPosition, rawFootballData, FOOTBALL_WEBSCRAPER_PATH,  :
+  object 'FOOTBALL_WEBSCRAPER_PATH' not found
+> 
+> proc.time()
+   user  system elapsed 
+  1.134   0.183   1.935 
