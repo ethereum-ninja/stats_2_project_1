@@ -86,4 +86,4 @@ In rm(DataListByPosition, rawFootballData, FOOTBALL_WEBSCRAPER_PATH,  :
 > 
 > proc.time()
    user  system elapsed 
-  1.134   0.183   1.935 
+  3.073   0.200   4.955 
