@@ -26,6 +26,22 @@ Type 'q()' to quit R.
 > ###################
 > 
 > library(stringr)
+> library(purrr)
+> library(lubridate)
+
+Attaching package: ‘lubridate’
+
+The following object is masked from ‘package:base’:
+
+    date
+
+> 
+> withGameDates <- function(football_tibble){
++   temp_tibble = football_tibble
++   temp_tibble$GameDate = temp_tibble$GameDate %>% map_chr(getGameDates) %>% as_date()
++   return(temp_tibble)
++ }
+> 
 > 
 > getGameDates <- function(gamedate){
 +   date_number = extractDateNumber(gamedate = gamedate)
@@ -48,4 +64,4 @@ Type 'q()' to quit R.
 > 
 > proc.time()
    user  system elapsed 
-  0.254   0.173   0.223 
+  0.453   0.174   0.410 

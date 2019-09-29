@@ -9,10 +9,10 @@ SOURCEDIR = ./src
 SOURCES := $(shell find $(SOURCEDIR) -name "*.R" -type f)
 SOURCEOUT = $(SOURCES:.R=.Rout) 
 
-output: $(DATADIR)/split.Rout
+output: $(DATADIR)/pipeline.Rout
 	mv .RData $(DATADIR)
 
-$(DATADIR)/split.Rout: $(DATADIR)/split.R $(SOURCEOUT)
+$(DATADIR)/pipeline.Rout: $(DATADIR)/pipeline.R $(SOURCEOUT)
 	R CMD BATCH $< $@
 
 %.Rout: %.R

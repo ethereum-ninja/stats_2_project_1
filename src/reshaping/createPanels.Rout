@@ -1,0 +1,68 @@
+
+R version 3.6.1 (2019-07-05) -- "Action of the Toes"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> ######################
+> # Code for creating panels out of the data
+> # Author: Kevin Thompson
+> # Last Updated September 28, 2019
+> ######################
+> library(tidyr)
+> library(dplyr)
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+> library(purrr)
+> library(tibble)
+> library(naniar)
+Registered S3 methods overwritten by 'ggplot2':
+  method         from 
+  [.quosures     rlang
+  c.quosures     rlang
+  print.quosures rlang
+> 
+> 
+> createPanelList <- function(tibble){
++   values = tibble %>% select(-c(PlayerID, Week, GameDate)) %>% colnames()
++   temp_panel_list = map(values, createPanels, tibble = tibble)
++   names(temp_panel_list) <- values
++   return(temp_panel_list)
++ }
+> 
+> # Replace NA with <NA>
+> createPanels <- function(value, tibble){
++   temp_tibble = tibble
++   temp_tibble$temp_value = unlist(tibble[,value])
++   temp_tibble = temp_tibble %>% select(c(Week, PlayerID, temp_value))
++   temp_panel = spread(data = temp_tibble, key = Week, value = temp_value)
++   return(temp_panel)
++ }
+> 
+> proc.time()
+   user  system elapsed 
+  0.610   0.160   0.551 

@@ -54,36 +54,33 @@ The following object is masked from ‘package:base’:
 
     date
 
-> 
-> rawFootballData <- getFootballData(url = URL)
-> FootballDatawithDates <- rawFootballData
-> FootballDatawithDates$GameDate <- FootballDatawithDates$GameDate %>%
-+                                     map_chr(getGameDates) %>%
-+                                     as_date()
-> 
-> relevant_positions = c("QB", "RB", "WR")
-> 
-> DataListByPosition <- FootballDatawithDates %>% 
-+                         filter(Position %in% relevant_positions) %>%
-+                         select(-c(StatSummary)) %>%
-+                         group_split(Position)
-> names(DataListByPosition) <- c("QB", "RB", "WR")
-> 
-> 
-> 
-> QBdata <- DataListByPosition$QB
-> WRdata <- DataListByPosition$WR
-> RBdata <- DataListByPosition$RB
+> library(tidyr)
+> library(rlang)
+
+Attaching package: ‘rlang’
+
+The following objects are masked from ‘package:purrr’:
+
+    %@%, as_function, flatten, flatten_chr, flatten_dbl, flatten_int,
+    flatten_lgl, flatten_raw, invoke, list_along, modify, prepend,
+    splice
+
+> library(naniar)
+Registered S3 methods overwritten by 'ggplot2':
+  method         from 
+  [.quosures     rlang
+  c.quosures     rlang
+  print.quosures rlang
 > 
 > 
 > 
-> rm(DataListByPosition, rawFootballData, FOOTBALL_WEBSCRAPER_PATH,
-+    relevant_positions, URL, getFootballData, getFootballPlayersJSON,
-+    removeColumnsWithWrongLength, FootballDatawithDates)
-Warning message:
-In rm(DataListByPosition, rawFootballData, FOOTBALL_WEBSCRAPER_PATH,  :
-  object 'FOOTBALL_WEBSCRAPER_PATH' not found
+> QBCrossSectional <- getFootballData(url = URL) %>%  # FootballWebscraper.R
++                       filterUnwantedVariables() %>%  # VariableFilter.R
++                       withGameDates() %>%  # parsing_dates.R
++                       filter(Position == "QB")
+> 
+> QBPanels <- QBCrossSectional %>% select(-c(Position)) %>% createPanelList()  # createPanels.R
 > 
 > proc.time()
    user  system elapsed 
-  3.073   0.200   4.955 
+  3.661   0.243   5.901 

@@ -5,6 +5,15 @@
 ###################
 
 library(stringr)
+library(purrr)
+library(lubridate)
+
+withGameDates <- function(football_tibble){
+  temp_tibble = football_tibble
+  temp_tibble$GameDate = temp_tibble$GameDate %>% map_chr(getGameDates) %>% as_date()
+  return(temp_tibble)
+}
+
 
 getGameDates <- function(gamedate){
   date_number = extractDateNumber(gamedate = gamedate)
