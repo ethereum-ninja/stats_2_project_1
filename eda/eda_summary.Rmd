@@ -49,10 +49,13 @@ vis_dat(QBdata[61:89])
 ### 1.3.2 QBCrossSectional dataset (New dataset)
 ```{r}
 vis_dat(QBCrossSectional)
+print(QBCrossSectional)
 ```
 
 ###  1.3.3 QBPanels dataset (New dataset)
 ```{r}
+print(QBPanels)
+
 for (panel in 1:length(QBPanels)) {
    missing_plot <- vis_miss(as.data.frame(QBPanels[panel]))
    print(missing_plot)
