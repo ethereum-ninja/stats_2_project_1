@@ -1,0 +1,267 @@
+---
+title: "Exploratory Data Analysis"
+author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
+date: "September 29, 2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(ggcorrplot)
+library(visdat)
+library(corrplot)
+library(ggthemes)
+```
+
+## 1.1: Load data
+```{r color="black"}
+load("../analysis/data/.RData")
+load("../analysis/data/RData.dms") 
+```
+
+## 1.2: Structures QBCrossSectional and QBPanels
+
+### 1.2.1 QB (Quarterback)
+```{r}
+str(QBCrossSectional)
+
+```
+### 1.2.2 QB (Panel Data)
+```{r}
+str(QBPanels)
+```
+
+## 1.3: Missing Data 
+
+### 1.3.1 Quarterbacks (Old Data QBdata dataset)
+
+```{r}
+vis_dat(QBdata[1:30])
+vis_dat(QBdata[31:60])
+vis_dat(QBdata[61:89])
+```
+
+### 1.3.2 QBCrossSectional dataset (New dataset)
+```{r}
+vis_dat(QBCrossSectional)
+```
+
+###  1.3.3 QBPanels dataset (New dataset)
+```{r}
+vis_dat(as.data.frame(QBPanels[1]))
+vis_dat(as.data.frame(QBPanels[2]))
+vis_dat(as.data.frame(QBPanels[3]))
+vis_dat(as.data.frame(QBPanels[4]))
+vis_dat(as.data.frame(QBPanels[5]))
+vis_dat(as.data.frame(QBPanels[6]))
+vis_dat(as.data.frame(QBPanels[7]))
+vis_dat(as.data.frame(QBPanels[8]))
+vis_dat(as.data.frame(QBPanels[9]))
+vis_dat(as.data.frame(QBPanels[10]))
+vis_dat(as.data.frame(QBPanels[11]))
+vis_dat(as.data.frame(QBPanels[12]))
+vis_dat(as.data.frame(QBPanels[13]))
+vis_dat(as.data.frame(QBPanels[14]))
+vis_dat(as.data.frame(QBPanels[15]))
+vis_dat(as.data.frame(QBPanels[16]))
+vis_dat(as.data.frame(QBPanels[17]))
+
+```
+
+## 1.4: Corrrelogram 
+### 1.4.1 Corrrelogram Style1 QBData (Old dataset)
+
+```{r}
+QBdata_num <- QBdata[-c(1:3,5:16,29:36,39:52,55:56,74:89)]
+corr <- round(cor(QBdata_num), 1)
+
+ggcorrplot(corr, hc.order = TRUE, 
+           type = "full", 
+           lab = TRUE, 
+           lab_size = 1.5, 
+           method="square", 
+           colors = c("tomato2", "white", "springgreen3"), 
+           title="Correlogram of Quarterbacks", tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+           ggtheme=theme_classic)
+
+```
+
+### 1.4.2 Corrrelogram Style2 QBData (Old dataset)
+
+```{r}
+corrplot(corr, method="circle",tl.cex = 0.55,tl.col = "#1C1C1C")
+```
+
+### 1.4.3 Corrrelogram of Crosssectional data (New dataset)
+
+```{r}
+QBX_ds <- QBCrossSectional[-c(1:6,21)]
+corr <- round(cor(QBX_ds), 1)
+ggcorrplot(corr, hc.order = TRUE, 
+           type = "full", 
+           lab = TRUE, 
+           lab_size = 1.5, 
+           method="square", 
+           colors = c("tomato2", "white", "springgreen3"), 
+           title="Correlogram of Quarterbacks", tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+           ggtheme=theme_classic)
+```
+
+## 1.5: Distributions
+### 1.5.1 Density plot for Fantasypoints is approxmiately Normal (Old QBData)
+
+```{r}
+library(e1071)
+par(mfrow=c(1, 2))  # divide graph area in 2 columns
+target <- QBdata$FantasyPoints
+plot(density(target), main="QBdata: FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
+polygon(density(target), col="red",asp=1.2 )
+
+```
+
+### 1.5.2 Density plot for Fantasypoints is approxmiately Normal (New QBCrossSectional)
+
+```{r}
+par(mfrow=c(1, 2))  # divide graph area in 2 columns
+target <- QBCrossSectional$FantasyPoints
+plot(density(target), main="CrossSectional Dataset: FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
+polygon(density(target), col="red")
+
+```
+
+### 1.5.3 Boxplots - Target and Individual Predictor Bevavior for per Team
+```{r}
+
+ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Team,fill=Team))+
+                       geom_boxplot()+
+                       xlab("Team")+ylab("FantasyPoints")+
+                       theme(axis.text.x = element_text(angle=45))
+
+for (i in 7:19) {
+  ggplotp <-  QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x="Team",fill="Team"))+
+                         geom_boxplot()+
+                         xlab("Team")+ylab(names(QBCrossSectional[i]))+
+                         theme(axis.text.x = element_text(angle=45))
+  print(ggplotp)
+}
+
+```
+
+## 1.6: Relationships
+### 1.6.1 Relationship between FanatasyPoints with all predictors and taking Opponent into consideration
+
+```{r}
+attach(QBCrossSectional)
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
+                                                  PassingCompletionPercentage+
+                                                  PassingYards+PassingYardsPerAttempt+
+                                                  PassingTouchdowns+PassingInterceptions+
+                                                  PassingRating+RushingAttempts+RushingYards+
+                                                  RushingYardsPerAttempt+RushingTouchdowns+FumblesLost,
+                                                  color=Opponent))+ 
+                     xlab("Relationship of predictors with each Opponent")+
+                     geom_point()+
+                     geom_smooth(method="lm",se=F)+
+                     theme(axis.text.x = element_text(angle=65, vjust=0.6))+facet_wrap(~Opponent)
+
+``` 
+
+### 1.6.2 Relationship between FanatasyPoints with all predictors and taking Home turf into consideration
+```{r}
+attach(QBCrossSectional)
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
+                                                  PassingCompletionPercentage+
+                                                  PassingYards+PassingYardsPerAttempt+
+                                                  PassingTouchdowns+PassingInterceptions+
+                                                  PassingRating+RushingAttempts+RushingYards+
+                                                  RushingYardsPerAttempt+RushingTouchdowns+FumblesLost,
+                                                  color=TeamIsHome))+
+                     geom_point()+
+                     geom_smooth(method="lm",se=F)+
+                     theme(axis.text.x = element_text(angle=65, vjust=0.6))+facet_wrap(~TeamIsHome)
+
+``` 
+
+
+### 1.6.3 Relationship between FanatasyPoints with all predictors per team
+
+```{r}
+attach(QBCrossSectional)
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
+                                                  PassingCompletionPercentage+
+                                                  PassingYards+PassingYardsPerAttempt+
+                                                  PassingTouchdowns+PassingInterceptions+
+                                                  PassingRating+RushingAttempts+
+                                                  RushingYards+RushingYardsPerAttempt+
+                                                  RushingTouchdowns+FumblesLost,color=Team)) +
+                     geom_point()+
+                     geom_smooth(method="lm",se=F)+
+                     theme(axis.text.x = element_text(angle=65, vjust=0.6))+facet_wrap(~Team)
+
+``` 
+
+### 1.6.4 Relationship between FantasyPoints and Individual predictors
+
+```{r}
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions)) + 
+  geom_point()+geom_smooth(method="lm",se=F)+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingAttempts)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletionPercentage)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingYards)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingYardsPerAttempt)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingTouchdowns)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingInterceptions)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingRating)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingAttempts)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingYards)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingYardsPerAttempt)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingTouchdowns)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=FumblesLost)) + 
+  geom_point()+geom_smooth(method="lm")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
+
+
+
+```
+
