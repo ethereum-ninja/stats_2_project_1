@@ -3,8 +3,8 @@ title: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
 date: "September 29, 2019"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 
@@ -53,24 +53,10 @@ vis_dat(QBCrossSectional)
 
 ###  1.3.3 QBPanels dataset (New dataset)
 ```{r}
-vis_dat(as.data.frame(QBPanels[1]))
-vis_dat(as.data.frame(QBPanels[2]))
-vis_dat(as.data.frame(QBPanels[3]))
-vis_dat(as.data.frame(QBPanels[4]))
-vis_dat(as.data.frame(QBPanels[5]))
-vis_dat(as.data.frame(QBPanels[6]))
-vis_dat(as.data.frame(QBPanels[7]))
-vis_dat(as.data.frame(QBPanels[8]))
-vis_dat(as.data.frame(QBPanels[9]))
-vis_dat(as.data.frame(QBPanels[10]))
-vis_dat(as.data.frame(QBPanels[11]))
-vis_dat(as.data.frame(QBPanels[12]))
-vis_dat(as.data.frame(QBPanels[13]))
-vis_dat(as.data.frame(QBPanels[14]))
-vis_dat(as.data.frame(QBPanels[15]))
-vis_dat(as.data.frame(QBPanels[16]))
-vis_dat(as.data.frame(QBPanels[17]))
-
+for (panel in 1:length(QBPanels)) {
+   missing_plot <- vis_miss(as.data.frame(QBPanels[panel]))
+   print(missing_plot)
+}
 ```
 
 ## 1.4: Corrrelogram 
@@ -208,60 +194,14 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAtte
 ### 1.6.4 Relationship between FantasyPoints and Individual predictors
 
 ```{r}
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions)) + 
-  geom_point()+geom_smooth(method="lm",se=F)+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingAttempts)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletionPercentage)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingYards)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingYardsPerAttempt)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingTouchdowns)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingInterceptions)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingRating)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingAttempts)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingYards)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingYardsPerAttempt)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=RushingTouchdowns)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=FumblesLost)) + 
-  geom_point()+geom_smooth(method="lm")+
-  theme(axis.text.x = element_text(angle=65, vjust=0.6))+theme_economist()
-
-
+for (i in 7:19) {
+  linear_plot <- QBCrossSectional %>% 
+                 ggplot(aes_string(y="FantasyPoints",x=names(QBCrossSectional[i]))) + 
+                 geom_point()+geom_smooth(method="lm",se=F)+
+                 theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+                 theme_economist()
+    print(linear_plot) 
+  }
 
 ```
 
