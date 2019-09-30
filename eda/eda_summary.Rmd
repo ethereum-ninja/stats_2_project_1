@@ -21,14 +21,15 @@ library(ggthemes)
 ## 1.1: Load data
 ```{r color="black"}
 load("../analysis/data/.RData")
-load("../analysis/data/RData.dms") 
+#load("../analysis/data/RData.dms") 
 ```
 
 ## 1.2: Structures QBCrossSectional and QBPanels
 
 ### 1.2.1 QB (Quarterback)
 ```{r}
-str(QBCrossSectional)
+head(QBCrossSectional)
+summary(QBCrossSectional)
 
 ```
 ### 1.2.2 QB (Panel Data)
@@ -41,9 +42,9 @@ str(QBPanels)
 ### 1.3.1 Quarterbacks (Old Data QBdata dataset)
 
 ```{r}
-vis_dat(QBdata[1:30])
-vis_dat(QBdata[31:60])
-vis_dat(QBdata[61:89])
+vis_dat(QBCrossSectional[1:30,])
+vis_dat(QBCrossSectional[31:60, ])
+vis_dat(QBCrossSectional[61:89, ])
 ```
 
 ### 1.3.2 QBCrossSectional dataset (New dataset)
@@ -124,17 +125,19 @@ polygon(density(target), col="red")
 ```
 
 ### 1.5.3 Boxplots - Target and Individual Predictor Bevavior for per Team
+
+I think we should do these by week - not team - we want to look at variance of the time series across obervations
 ```{r}
 
- QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Team,fill=Team))+
+ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week, group=Week))+
                        geom_boxplot()+
-                       xlab("Team")+ylab("FantasyPoints")+
+                       xlab("Week")+ylab("FantasyPoints")+
                        theme(axis.text.x = element_text(angle=45))
 
 for (i in 7:19) {
-  ggplotp <-  QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x="Team",fill="Team"))+
+  ggplotp <-  QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x="Week",fill="Week", group="Week"))+
                          geom_boxplot()+
-                         xlab("Team")+ylab(names(QBCrossSectional[i]))+
+                         xlab("Week")+ylab(names(QBCrossSectional[i]))+
                          theme(axis.text.x = element_text(angle=45))
   print(ggplotp)
 }
@@ -204,7 +207,55 @@ for (i in 7:19) {
                  theme(axis.text.x = element_text(angle=65, vjust=0.6))+
                  theme_economist()
     print(linear_plot) 
+  
+    
   }
 
 ```
 
+```{r}
+features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions')
+for(f in features_to_keep){
+  hist = QBCrossSectional %>% ggplot(aes_string(x=f))+
+    geom_histogram()+
+    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+    theme_economist()
+  print(hist)
+}
+```
+
+Drop rushing yards per attempt
+
+## Do we want to convert any of these to factors?
+
+## Need defensive stats
+
+## Derived Features
+
+### Passing Yards
+  - AvgPassYdsPerGamePlayedSeason
+  - CumulativePassYardsSeason
+  - MaxPassYardsSeason
+  - MinPassYardsSeason
+  - PassYardsFactor
+    - 0-100
+    - 101-200
+    - 201-300
+    - 300-400
+    - 400+
+
+### Passing Attempts
+  - AvgPassAttemptsPerGamePlayedSeason
+  - CumulativePassYardsSeason
+  - MaxPassYardsSeason
+  - MinPassYardsSeason
+  - PassAttemptsFactor
+    - 0-10
+    - 10-20
+    - 20-30
+    - 30-40
+    - 40-50
+    - 50+
+
+
+### Defensive stats
