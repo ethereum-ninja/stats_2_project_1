@@ -16,6 +16,7 @@ library(ggcorrplot)
 library(visdat)
 library(corrplot)
 library(ggthemes)
+library(sqldf)
 ```
 
 ## 1.1: Load data
@@ -213,8 +214,11 @@ for (i in 7:19) {
 
 ```
 
+
+## Check for skewed predictors
+
 ```{r}
-features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions')
+features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions', 'PassingYardsPerAttempt')
 for(f in features_to_keep){
   hist = QBCrossSectional %>% ggplot(aes_string(x=f))+
     geom_histogram()+
@@ -228,7 +232,6 @@ Drop rushing yards per attempt
 
 ## Do we want to convert any of these to factors?
 
-## Need defensive stats
 
 ## Derived Features
 
@@ -258,4 +261,50 @@ Drop rushing yards per attempt
     - 50+
 
 
-### Defensive stats
+## Defensive stats
+### Player Defensive Stats
+
+
+```{r}
+
+defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.#team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filter#s.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
+defensive_positions$StatSummary = c(NULL)
+defensive_stats = sqldf("SELECT * FROM all_positions WHERE FantasyPosition IN ('DL', 'DB', 'LB')") 
+
+
+
+
+```
+
+##  Team Defensive Stats
+
+```{r}
+
+team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.
+team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
+team_defense$StatSummary = c(NULL)
+```
+
+```{r}
+defensive_players_by_week =  sqldf("SELECT 
+                                      Week, 
+                                      FantasyPosition,
+                                      Count(*)
+                                    FROM defensive_positions
+                                    GROUP BY Week, FantasyPosition")
+
+team_defense_by_week =  sqldf("SELECT 
+                                      Week, 
+                                      FantasyPosition,
+                                      Count(*)
+                                    FROM team_defense
+                                    GROUP BY Week, FantasyPosition")
+
+# this looks good some teams are on bye in certain weeks
+```
+
+## Do some averages for Defense before stitching on to QB data
+
+
+
+
