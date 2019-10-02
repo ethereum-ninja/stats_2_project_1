@@ -243,12 +243,6 @@ for(f in features_to_keep){
 
 Drop rushing yards per attempt
 
-## Do we want to convert any of these to factors?
-
-
-
-
-
 ## Defensive stats
 
 ### Player Defensive Stats
@@ -294,9 +288,11 @@ team_defense_by_week =  sqldf("SELECT
 ## Do some averages for Defense before stitching on to QB data
 
 ```{r}
-defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints')
+defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
-team_defense = team_defense %>% select(defensive_columns) %>% group_by(Week) %>% mutate(WeeklyRank = rank(FantasyPoints)) 
+
+team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>% mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints)) 
+attach(team_defense)
   
   
   
@@ -312,4 +308,39 @@ QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, 
 ```
 
 ## Add some lag data for QB
+
+### CumulativeVariables (these should definitley be combined into a weekly ranking)
+
+```{r}
+
+#Should we just train on second half of 2017?
+QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveOverlay %>% group_by(PlayerID) %>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
+        , CumulativeAveragePassingTouchdowns=cummean(PassingTouchdowns)
+        , CumulativeAverageCompletions = cummean(PassingCompletions) # not sure that completions matter much - most leagues don't reward them
+        , CumulativeMaxPassingTouchdowns = cummax(PassingTouchdowns) 
+        , CumulativeMaxPassingYards = cummax(PassingYards)
+        , CumulativeMaxPassingAttempts = cummax(PassingAttempts)
+        , CumulativeMaxPassingRating = cummax(PassingRating)
+        , CumulativeMaxCompletions = cummax(PassingCompletions)
+        , CumulativeMaxPassYardsPerAttempt = cummax(PassingYardsPerAttempt)
+        , CumulativeMinPassingTouchdowns = cummin(PassingTouchdowns) 
+        , CumulativeMinPassingYards = cummin(PassingYards)   #Let's get mins to capture downside risk
+        , CumulativeMinPassingAttempts = cummin(PassingAttempts)
+        , CumulativeMinPassingRating = cummin(PassingRating)
+        , CumulativeMinCompletions = cummin(PassingCompletions)
+        , CumulativeMinPassYardsPerAttempt = cummin(PassingYardsPerAttempt)
+        , LastWeekQuarterBackRating = lag(PassingRating)
+        , LastWeekQuarterPassingYards = lag(PassingYards)
+        , LastWeekQuarterPassingTouchdowns = lag(PassingTouchdowns)
+        , NextWeekFantasyPoints = lead(FantasyPoints) #Target Variable
+        )
+
+QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
+```
+
+
+
+
+## Do we want to convert any of these to factors?
+
 
