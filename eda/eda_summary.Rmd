@@ -17,6 +17,8 @@ library(visdat)
 library(corrplot)
 library(ggthemes)
 library(sqldf)
+library(rjson)
+library(purrr)
 ```
 
 ## 1.1: Load data
@@ -69,23 +71,23 @@ for (panel in 1:length(QBPanels)) {
 
 ```{r}
 #QBdata_num <- QBCrossSectional[-c(1:3,5:16,29:36,39:52,55:56,74:89)]
-corr <- round(cor(QBdata_num), 1)
+#corr <- round(cor(QBdata_num), 1)
 
-ggcorrplot(corr, hc.order = TRUE, 
-           type = "full", 
-           lab = TRUE, 
-           lab_size = 1.5, 
-           method="square", 
-           colors = c("tomato2", "white", "springgreen3"), 
-           title="Correlogram of Quarterbacks", tl.cex = 7,pch=2,pch.col =3,show.diag = T,
-           ggtheme=theme_classic)
+#ggcorrplot(corr, hc.order = TRUE, 
+#           type = "full", 
+#           lab = TRUE, 
+#           lab_size = 1.5, 
+#           method="square", 
+#           colors = c("tomato2", "white", "springgreen3"), 
+#           title="Correlogram of Quarterbacks", tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+#           ggtheme=theme_classic)
 
 ```
 
 ### 1.4.2 Corrrelogram Style2 QBData (Old dataset)
 
 ```{r}
-corrplot(corr, method="circle",tl.cex = 0.55,tl.col = "#1C1C1C")
+#corrplot(corr, method="circle",tl.cex = 0.55,tl.col = "#1C1C1C")
 ```
 
 ### 1.4.3 Corrrelogram of Crosssectional data (New dataset)
@@ -109,7 +111,7 @@ ggcorrplot(corr, hc.order = TRUE,
 ```{r}
 library(e1071)
 par(mfrow=c(1, 2))  # divide graph area in 2 columns
-target <- QBdata$FantasyPoints
+target <- QBCrossSectional$FantasyPoints
 plot(density(target), main="QBdata: FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
 polygon(density(target), col="red",asp=1.2 )
 
@@ -148,6 +150,8 @@ for (i in 7:19) {
 ## 1.6: Relationships
 ### 1.6.1 Relationship between FanatasyPoints with all predictors and taking Opponent into consideration
 
+Not sure that combining these is useful
+
 ```{r}
 attach(QBCrossSectional)
 QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
@@ -165,6 +169,8 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAtte
 ``` 
 
 ### 1.6.2 Relationship between FanatasyPoints with all predictors and taking Home turf into consideration
+
+Same here.....
 ```{r}
 attach(QBCrossSectional)
 QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
@@ -183,6 +189,8 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAtte
 
 ### 1.6.3 Relationship between FanatasyPoints with all predictors per team
 
+and here......
+
 ```{r}
 attach(QBCrossSectional)
 QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAttempts+
@@ -199,6 +207,9 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAtte
 ``` 
 
 ### 1.6.4 Relationship between FantasyPoints and Individual predictors
+
+    This makes sense - but we are actually trying to capture what the NEXT value for fantasy points is likely to be - these are all going to be highly correlated to the current week since the fantasy score is a linear combination of the predictors for any given week. We need to shift the data (and z-score it?) before running these charts.
+    
 
 ```{r}
 for (i in 7:19) {
@@ -226,6 +237,8 @@ for(f in features_to_keep){
     theme_economist()
   print(hist)
 }
+
+#TODO: Check the normality by week?
 ```
 
 Drop rushing yards per attempt
@@ -233,35 +246,11 @@ Drop rushing yards per attempt
 ## Do we want to convert any of these to factors?
 
 
-## Derived Features
 
-### Passing Yards
-  - AvgPassYdsPerGamePlayedSeason
-  - CumulativePassYardsSeason
-  - MaxPassYardsSeason
-  - MinPassYardsSeason
-  - PassYardsFactor
-    - 0-100
-    - 101-200
-    - 201-300
-    - 300-400
-    - 400+
-
-### Passing Attempts
-  - AvgPassAttemptsPerGamePlayedSeason
-  - CumulativePassYardsSeason
-  - MaxPassYardsSeason
-  - MinPassYardsSeason
-  - PassAttemptsFactor
-    - 0-10
-    - 10-20
-    - 20-30
-    - 30-40
-    - 40-50
-    - 50+
 
 
 ## Defensive stats
+
 ### Player Defensive Stats
 
 
@@ -269,7 +258,6 @@ Drop rushing yards per attempt
 
 defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.#team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filter#s.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
 defensive_positions$StatSummary = c(NULL)
-defensive_stats = sqldf("SELECT * FROM all_positions WHERE FantasyPosition IN ('DL', 'DB', 'LB')") 
 
 
 
@@ -306,14 +294,22 @@ team_defense_by_week =  sqldf("SELECT
 ## Do some averages for Defense before stitching on to QB data
 
 ```{r}
-defensive_columns = c('Team', 'TacklesForLoss', 'Sacks', 'QuarterBackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints')
+defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints')
 
-team_defense = team_defense %>% group_by(Week) %>% mutate(WeeklyRank = rank(FantasyPoints))
+team_defense = team_defense %>% select(defensive_columns) %>% group_by(Week) %>% mutate(WeeklyRank = rank(FantasyPoints)) 
   
   
   
-sqldf("SELECT Week, WeeklyRank FROM team_defense  WHERE Week = 1 ORDER BY Week, WeeklyRank")
+sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDER BY Team, Week")
 ```
 
+## Add defensive matchups
 
+```{r}
+
+QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team' )) 
+
+```
+
+## Add some lag data for QB
 
