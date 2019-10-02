@@ -8,7 +8,7 @@ library(rlang)
 
 filterUnwantedVariables <- function(tibble){
   temp_tibble = tibble %>% select(PlayerID, Week, Position, Opponent, TeamIsHome,
-                                  GameDate, PassingCompletions,
+                                  GameDate, PassingCompletions, Result,
                                   PassingAttempts, PassingCompletionPercentage,
                                   PassingYards, PassingYardsPerAttempt, PassingTouchdowns,
                                   PassingInterceptions, PassingRating, RushingAttempts,
@@ -16,3 +16,4 @@ filterUnwantedVariables <- function(tibble){
                                   FumblesLost, FantasyPoints, Team)
   return(temp_tibble)
 }
+
