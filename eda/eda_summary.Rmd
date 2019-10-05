@@ -25,6 +25,8 @@ library(purrr)
 ```{r color="black"}
 load("../analysis/data/.RData")
 #load("../analysis/data/RData.dms") 
+QBCrossSectional$Week <- as.factor(QBCrossSectional$Week)
+attach(QBCrossSectional)
 ```
 
 ## 1.2: Structures QBCrossSectional and QBPanels
@@ -33,7 +35,6 @@ load("../analysis/data/.RData")
 ```{r}
 head(QBCrossSectional)
 summary(QBCrossSectional)
-
 ```
 ### 1.2.2 QB (Panel Data)
 ```{r}
@@ -132,18 +133,25 @@ polygon(density(target), col="red")
 I think we should do these by week - not team - we want to look at variance of the time series across obervations
 ```{r}
 
- QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week, group=Week))+
-                       geom_boxplot()+
-                       xlab("Week")+ylab("FantasyPoints")+
-                       theme(axis.text.x = element_text(angle=45))
+QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
+                     geom_boxplot(show.legend = FALSE)+
+                     xlab("Week")+ylab("FantasyPoints")+
+                     labs(title="Fantasyfootball", 
+                     subtitle="Weekly fantasypoints", 
+                     aption="Source: Fantasyfootball")+theme_economist()
 
 for (i in 7:19) {
-  ggplotp <-  QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x="Week",fill="Week", group="Week"))+
-                         geom_boxplot()+
-                         xlab("Week")+ylab(names(QBCrossSectional[i]))+
-                         theme(axis.text.x = element_text(angle=45))
+
+ggplotp <- QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x=Week,fill=Week,group=Week))+
+                     geom_boxplot(show.legend = FALSE)+
+                     xlab("Week")+ylab(names(QBCrossSectional[i]))+
+                     labs(title="Fantasyfootball", 
+                     subtitle="Weekly fantasypoints", 
+                     aption="Source: Fantasyfootball")+theme_economist()  
   print(ggplotp)
 }
+
+
 
 ```
 
@@ -250,7 +258,7 @@ Drop rushing yards per attempt
 
 ```{r}
 
-defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.#team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filter#s.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
+defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
 defensive_positions$StatSummary = c(NULL)
 
 
@@ -262,8 +270,7 @@ defensive_positions$StatSummary = c(NULL)
 
 ```{r}
 
-team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.
-team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
+team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 team_defense$StatSummary = c(NULL)
 ```
 
@@ -294,7 +301,7 @@ defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHit
 team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>% mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints)) 
 attach(team_defense)
   
-  
+team_defense$Week = as.factor(team_defense$Week)  
   
 sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDER BY Team, Week")
 ```
