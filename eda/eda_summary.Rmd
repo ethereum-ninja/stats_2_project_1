@@ -19,6 +19,23 @@ library(ggthemes)
 library(sqldf)
 library(rjson)
 library(purrr)
+library(gridExtra)
+library(scales) # provides additional formatting options for ggplot objects
+library(knitr)
+Pretty <- function(plot) {
+  pretty_plot <- plot + geom_line() +
+    theme_minimal()+
+    theme(panel.background=element_blank(),
+          axis.ticks=element_blank(),
+          axis.title=element_blank(), 
+          text=element_text(family="serif")) +
+    scale_x_continuous(breaks = seq(1996,2016,by=4),
+                       labels = sprintf("'%s",substr(seq(1996,2016,by=4),3,4)))+
+    geom_point(color="white",size=3) +
+    geom_point()
+  
+  return(pretty_plot)
+}
 ```
 
 ## 1.1: Load data
@@ -253,9 +270,9 @@ for (i in 7:19) {
 
 Drop rushing yards per attempt
 
-## Defensive stats
+## 1.7 Defensive stats
 
-### Player Defensive Stats
+### 1.7.1 Player Defensive Stats
 
 
 ```{r}
@@ -269,7 +286,7 @@ defensive_positions$StatSummary = c(NULL)
 
 ```
 
-##  Team Defensive Stats
+###  1.7.2 Team Defensive Stats
 
 ```{r}
 
@@ -278,6 +295,8 @@ team_defense$StatSummary = c(NULL)
 
 
 ```
+
+##  Defensive Players and team defense by week
 
 ```{r}
 defensive_players_by_week =  sqldf("SELECT 
@@ -297,13 +316,15 @@ team_defense_by_week =  sqldf("SELECT
 # this looks good some teams are on bye in certain weeks
 ```
 
-## Do some averages for Defense before stitching on to QB data
+### Do some averages for Defense before stitching on to QB data
 
 ```{r}
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
 
-team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>% mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints)) 
+team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>%
+               mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints))
+#               mutate(PlayerName = paste(FirstName," ",LastName))
 attach(team_defense)
   
 team_defense$Week = as.factor(team_defense$Week)  
@@ -315,11 +336,11 @@ sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDE
 
 ```{r}
 
-QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team' )) 
+QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team')) 
 
 ```
 
-## Add some lag data for QB
+## 1.7.3 Add some lag data for QB
 
 ### CumulativeVariables (these should definitley be combined into a weekly ranking)
 
@@ -348,6 +369,62 @@ QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveO
         )
 
 QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
+final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
+attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
+```
+
+## 1.7.4 Individuals Line plots for cumulative averages by week
+
+```{r}
+
+for(p in 37:51){
+  #print(paste("violin plots for ",names(players_ds[p])))
+   for (player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
+       a_size <- player + 29
+       players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
+    
+       line_plot  <-  players_ds %>% 
+                   ggplot(aes_string(x="as.numeric(Week)",y=names(players_ds[p])))+
+                   ggtitle(names(players_ds[p]))+
+                   geom_line(show.legend = FALSE)+
+                              xlab("PlayerID")+
+                              ylab(names(players_ds[p]))+  
+                              labs(title="Fantasyfootball", 
+                              subtitle=names(players_ds[p]), 
+                              aption="Source: Fantasyfootball")+
+                 theme_economist(base_size=8)+theme(axis.text.y = element_text(size=5))+
+                 theme(axis.text.x = element_text(angle=65, vjust=0.6))+facet_wrap(~PlayerID)
+      suppressWarnings(print(line_plot))
+   }
+}
+
+```
+
+## 1.7.5 Individuals Violin plots for cumulative averages
+
+```{r}
+for(p in 37:51){
+  #print(paste("violin plots for ",names(players_ds[p])))
+   for (player in seq(1,length(unique(final_ds$PlayerID)),by=20)){
+       a_size <- player + 19
+       players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
+    
+      v_plot  <-  players_ds %>% 
+                  ggplot(aes_string(x="as.factor(PlayerID)",y=names(players_ds[p]),fill="as.factor(PlayerID)"))+
+                  ggtitle(names(players_ds[p]))+
+                  geom_violin(show.legend = FALSE)+
+                              xlab("PlayerID")+
+                              ylab(names(players_ds[p]))+  
+                              labs(title="Fantasyfootball", 
+                              subtitle=names(players_ds[p]), 
+                              aption="Source: Fantasyfootball")+
+                 theme_economist(base_size=8)+theme(axis.text.y = element_text(size=5))+
+                 theme(axis.text.x = element_text(angle=65, vjust=0.6))
+      print(v_plot)
+   }
+}
+
+str(final_ds)
 ```
 
 
