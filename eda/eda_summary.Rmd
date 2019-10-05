@@ -3,8 +3,8 @@ title: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
 date: "September 29, 2019"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 
@@ -435,7 +435,7 @@ ggcorrplot(corr, hc.order = TRUE,
 
 ```{r}
 
-for(p in 37:37){
+for(p in 37:51){
    for (player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
        a_size <- player + 29
        players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
