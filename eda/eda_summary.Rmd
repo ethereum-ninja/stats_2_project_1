@@ -3,8 +3,8 @@ title: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
 date: "September 29, 2019"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 
@@ -424,10 +424,24 @@ for(p in 37:51){
    }
 }
 
-str(final_ds)
 ```
 
+## 1.7.6 Correlogram for Cumulative Averages
 
+```{r}
+
+final_cor_ds <- final_ds %>% select(PlayerID,FantasyPoints,names(final_ds[37:51]))
+corr <- round(cor(final_cor_ds[-1]), 1)
+ggcorrplot(corr, hc.order = TRUE, 
+           type = "full", 
+           lab = TRUE, 
+           lab_size = 1.5, 
+           method="square", 
+           colors = c("tomato2", "white", "springgreen3"), 
+           title="Correlogram of Cumulative Averages", tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+           ggtheme=theme_classic)
+
+```
 
 
 ## Do we want to convert any of these to factors?
