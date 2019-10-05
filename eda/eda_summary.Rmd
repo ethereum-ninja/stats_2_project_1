@@ -22,20 +22,7 @@ library(purrr)
 library(gridExtra)
 library(scales) # provides additional formatting options for ggplot objects
 library(knitr)
-Pretty <- function(plot) {
-  pretty_plot <- plot + geom_line() +
-    theme_minimal()+
-    theme(panel.background=element_blank(),
-          axis.ticks=element_blank(),
-          axis.title=element_blank(), 
-          text=element_text(family="serif")) +
-    scale_x_continuous(breaks = seq(1996,2016,by=4),
-                       labels = sprintf("'%s",substr(seq(1996,2016,by=4),3,4)))+
-    geom_point(color="white",size=3) +
-    geom_point()
-  
-  return(pretty_plot)
-}
+
 ```
 
 ## 1.1: Load data
@@ -49,11 +36,13 @@ attach(QBCrossSectional)
 ## 1.2: Structures QBCrossSectional and QBPanels
 
 ### 1.2.1 QB (Quarterback)
+
 ```{r}
-head(QBCrossSectional)
 summary(QBCrossSectional)
 ```
+
 ### 1.2.2 QB (Panel Data)
+
 ```{r}
 str(QBPanels)
 ```
@@ -71,7 +60,6 @@ vis_dat(QBCrossSectional[61:89, ])
 ### 1.3.2 QBCrossSectional dataset (New dataset)
 ```{r}
 vis_dat(QBCrossSectional)
-print(QBCrossSectional)
 ```
 
 ###  1.3.3 QBPanels dataset (New dataset)
@@ -79,8 +67,8 @@ print(QBCrossSectional)
 print(QBPanels)
 
 for (panel in 1:length(QBPanels)) {
-   missing_plot <- vis_miss(as.data.frame(QBPanels[panel]))
-   print(missing_plot)
+   missing_plot <- vis_dat(as.data.frame(QBPanels[panel]))
+   #print(missing_plot) Uncomment if you want to see plots
 }
 ```
 
@@ -370,7 +358,6 @@ QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveO
 
 QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
 final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
-attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
 ```
 
 ## 1.7.4 Individuals Line plots for cumulative averages by week
@@ -444,6 +431,56 @@ ggcorrplot(corr, hc.order = TRUE,
 ```
 
 
-## Do we want to convert any of these to factors?
+## 1.7.7 Individuals Bar plots for cumulative averages
 
+```{r}
 
+for(p in 37:51){
+   for (player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
+       a_size <- player + 29
+       players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
+    
+       bar_plot  <-   players_ds %>% 
+                      ggplot(aes_string(x="as.factor(PlayerID)",y=names(players_ds[p]),fill="as.factor(PlayerID)"))+
+                      ggtitle(names(players_ds[p]))+
+                      geom_bar(stat="identity", width=.5, show.legend = FALSE)+
+                      xlab("PlayerID")+
+                      ylab(names(players_ds[p]))+  
+                      labs(title="Fantasyfootball", 
+                           subtitle=names(players_ds[p]), 
+                           aption="Source: Fantasyfootball")+
+                      theme_economist(base_size=8)+theme(axis.text.y = element_text(size=5))+
+                      theme(axis.text.x = element_text(angle=65, vjust=0.6))
+           print(bar_plot)
+       }
+}
+
+```
+
+## 1.7.8 Linear plots for cumulative averages
+
+```{r}
+
+for (i in 37:51) {
+  linear_cum_plot <- final_ds %>% 
+                     ggplot(aes_string(y="FantasyPoints",x=names(final_ds[i]),color="Week"))  + 
+                     geom_point()+
+                     geom_smooth(method="lm",se=F)+
+                     xlab(names(final_ds[i]))+
+                     ylab("FantasyPoints")+  
+                     labs(title="Fantasyfootball", 
+                             subtitle=names(players_ds[p]), 
+                             aption="Source: Fantasyfootball")+
+                     theme_wsj()+
+                     theme(plot.title    = element_text(size = rel(0.5)),
+                           plot.subtitle = element_text(size = rel(0.5)),
+                           axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                           axis.title    = element_text(size = rel(0.5)),
+                           legend.position  = "right",
+                           legend.direction ="vertical",
+                           legend.title = element_text(size = rel(0.5))
+                          )
+    print(linear_cum_plot) 
+  }
+
+```
