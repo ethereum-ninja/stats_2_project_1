@@ -3,8 +3,8 @@ title: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
 date: "September 29, 2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 
@@ -435,13 +435,15 @@ ggcorrplot(corr, hc.order = TRUE,
 
 ```{r}
 
-for(p in 37:51){
+for(p in 37:37){
    for (player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
        a_size <- player + 29
        players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
     
        bar_plot  <-   players_ds %>% 
-                      ggplot(aes_string(x="as.factor(PlayerID)",y=names(players_ds[p]),fill="as.factor(PlayerID)"))+
+                      ggplot(aes_string(x="as.factor(PlayerID)",
+                                        y=names(players_ds[p]),
+                                        fill="as.factor(PlayerID)"))+
                       ggtitle(names(players_ds[p]))+
                       geom_bar(stat="identity", width=.5, show.legend = FALSE)+
                       xlab("PlayerID")+
@@ -457,19 +459,19 @@ for(p in 37:51){
 
 ```
 
-## 1.7.8 Linear plots for cumulative averages
+## 1.7.8 Scatter plots for cumulative averages
 
 ```{r}
 
 for (i in 37:51) {
-  linear_cum_plot <- final_ds %>% 
+  Scatter_cumplot <- final_ds %>% 
                      ggplot(aes_string(y="FantasyPoints",x=names(final_ds[i]),color="Week"))  + 
                      geom_point()+
                      geom_smooth(method="lm",se=F)+
                      xlab(names(final_ds[i]))+
                      ylab("FantasyPoints")+  
                      labs(title="Fantasyfootball", 
-                             subtitle=names(players_ds[p]), 
+                             subtitle=names(final_ds[i]), 
                              aption="Source: Fantasyfootball")+
                      theme_wsj()+
                      theme(plot.title    = element_text(size = rel(0.5)),
@@ -480,7 +482,7 @@ for (i in 37:51) {
                            legend.direction ="vertical",
                            legend.title = element_text(size = rel(0.5))
                           )
-    print(linear_cum_plot) 
+    print(Scatter_cumplot) 
   }
 
 ```
