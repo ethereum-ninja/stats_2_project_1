@@ -3,8 +3,8 @@ title: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
 date: "September 29, 2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 
@@ -155,6 +155,24 @@ ggplotp <- QBCrossSectional %>% ggplot(aes_string(y=names(QBCrossSectional[i]),x
 
 ```
 
+
+## Check for skewed predictors
+
+### 1.5.4 Histograms - Normality by Week
+
+```{r}
+features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions', 'PassingYardsPerAttempt')
+for(f in features_to_keep){
+  hist = QBCrossSectional %>% ggplot(aes_string(x=f))+
+                              geom_histogram(bins=30,aes(fill=Week),show.legend = FALSE)+
+                              facet_wrap(~Week,ncol=8)+theme_economist()+theme(axis.text.x = element_text(angle = 45, hjust = 1))
+                              
+  print(hist)
+}
+
+```
+
+
 ## 1.6: Relationships
 ### 1.6.1 Relationship between FanatasyPoints with all predictors and taking Opponent into consideration
 
@@ -216,7 +234,8 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=PassingCompletions+PassingAtte
 
 ### 1.6.4 Relationship between FantasyPoints and Individual predictors
 
-    This makes sense - but we are actually trying to capture what the NEXT value for fantasy points is likely to be - these are all going to be highly correlated to the current week since the fantasy score is a linear combination of the predictors for any given week. We need to shift the data (and z-score it?) before running these charts.
+    This makes sense - but we are actually trying to capture what the NEXT value for fantasy points is likely to be - these are all going to be highly correlated to the current 
+    week since the fantasy score is a linear combination of the predictors for any given week. We need to shift the data (and z-score it?) before running these charts.
     
 
 ```{r}
@@ -227,27 +246,10 @@ for (i in 7:19) {
                  theme(axis.text.x = element_text(angle=65, vjust=0.6))+
                  theme_economist()
     print(linear_plot) 
-  
-    
   }
 
 ```
 
-
-## Check for skewed predictors
-
-```{r}
-features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions', 'PassingYardsPerAttempt')
-for(f in features_to_keep){
-  hist = QBCrossSectional %>% ggplot(aes_string(x=f))+
-    geom_histogram()+
-    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
-    theme_economist()
-  print(hist)
-}
-
-#TODO: Check the normality by week?
-```
 
 Drop rushing yards per attempt
 
@@ -259,6 +261,7 @@ Drop rushing yards per attempt
 ```{r}
 
 defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
+
 defensive_positions$StatSummary = c(NULL)
 
 
@@ -272,6 +275,8 @@ defensive_positions$StatSummary = c(NULL)
 
 team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 team_defense$StatSummary = c(NULL)
+
+
 ```
 
 ```{r}
