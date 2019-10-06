@@ -30,72 +30,29 @@ library(knitr)
 
 ```{r color="black"}
 load("../analysis/data/.RData")
-QBCrossSectional$Week <- as.factor(QBCrossSectional$Week)
+QBCrossSectional = getFootballData(URL) %>% filterUnwantedVariables() %>% filter(Position == 'QB')
+summary(QBCrossSectional)
 attach(QBCrossSectional)
+
 ```
 
 Drop rushing yards per attempt
 
 # 3 : Defensive stats 
 
-    ## 3.1 : Player Defensive Stats
-
-
-```{r}
-
-defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
-
-defensive_positions$StatSummary = c(NULL)
-
-
-
-
-```
-
-    ##  3.2 : Team Defensive Stats
+    ##  3.1 : Team Defensive Stats
 
 ```{r}
 
 team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 team_defense$StatSummary = c(NULL)
 
-
-```
-
-    ## 3.3 : Defensive Players and team defense by week
-
-```{r}
-defensive_players_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM defensive_positions
-                                    GROUP BY Week, FantasyPosition")
-
-team_defense_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM team_defense
-                                    GROUP BY Week, FantasyPosition")
-
-# this looks good some teams are on bye in certain weeks
-```
-
-    ## 3.4 : Do some averages for Defense before stitching on to QB data
-
-```{r}
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
 
-team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>%
-               mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints))
-#               mutate(PlayerName = paste(FirstName," ",LastName))
+team_defense = team_defense %>% dplyr::select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
+
 attach(team_defense)
-  
-team_defense$Week = as.factor(team_defense$Week)  
-  
-sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDER BY Team, Week")
 ```
 
     ## 3.5 : Add defensive matchups
@@ -103,6 +60,7 @@ sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDE
 ```{r}
 
 QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team')) 
+summary(QBCrossSectionalDefensiveOverlay)
 
 ```
 
@@ -112,8 +70,9 @@ QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, 
 
 ```{r}
 
-QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveOverlay %>% group_by(PlayerID) %>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
+QBCrossSectionalCumulativePassYards = QBCrossSectional %>% group_by(PlayerID)%>% filter(n() >= 8)%>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
         , CumulativeAveragePassingTouchdowns=cummean(PassingTouchdowns)
+        , CumulativeAveragePassingInterceptions=cummean(PassingInterceptions)
         , CumulativeAveragePassingRating=cummean(PassingRating)
         , CumulativeAverageCompletions = cummean(PassingCompletions) # not sure that completions matter much - most leagues don't reward them
         , CumulativeAverageCompletionPercentage = cummean(PassingCompletionPercentage)
@@ -129,15 +88,18 @@ QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveO
         , CumulativeMinPassingRating = cummin(PassingRating)
         , CumulativeMinCompletions = cummin(PassingCompletions)
         , CumulativeMinPassYardsPerAttempt = cummin(PassingYardsPerAttempt)
-        #, LastWeekQuarterBackRating = lag(PassingRating) by leading target variable to t+1, the current values are implicitly lagged
-        #, LastWeekPassingYards = lag(PassingYards)
-        #, LastWeekPassingTouchdowns = lag(PassingTouchdowns)
         , NextWeekFantasyPoints = lead(FantasyPoints) #Target Variable
-        , NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
+        , NextOpponent = lead(Opponent)
+        #, NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
       )
 
-QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
-final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
+
+QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalCumulativePassYards %>% left_join(team_defensive_rankings, by = c('Week'='Week', 'NextOpponent'='Team')) 
+
+#QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
+attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
+final_ds = QBCrossSectionalDefensiveOverlayCumulativePassYards
+summary(QBCrossSectionalDefensiveOverlayCumulativePassYards)
 ```
 
 
