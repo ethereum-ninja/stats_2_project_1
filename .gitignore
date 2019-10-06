@@ -33,3 +33,6 @@ vignettes/*.pdf
 rsconnect/
 .Rproj.user
 eda/alex_smith.csv
+test.csv
+test.xlsm
+alex_smith.csv
