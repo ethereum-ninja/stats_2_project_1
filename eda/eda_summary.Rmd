@@ -436,25 +436,28 @@ ggcorrplot(corr, hc.order = TRUE,
 ```{r}
 
 for(p in 37:51){
-   for (player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
+   for(player in seq(1,length(unique(final_ds$PlayerID)),by=30)){
        a_size <- player + 29
        players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
-    
-       bar_plot  <-   players_ds %>% 
-                      ggplot(aes_string(x="as.factor(PlayerID)",
-                                        y=names(players_ds[p]),
-                                        fill="as.factor(PlayerID)"))+
-                      ggtitle(names(players_ds[p]))+
+       
+       player_cum_avg  <- players_ds %>% select(PlayerID,Week,names(players_ds[p])) %>%
+                          group_by(PlayerID) %>% arrange(PlayerID,desc(Week)) %>% filter(as.numeric(Week)== max(as.numeric(Week)))
+       #player_cum_avg$PlayerID <- as.factor(player_cum_avg$PlayerID)
+       bar_plot  <-   player_cum_avg %>% 
+                      ggplot(aes_string(x="as.factor(player_cum_avg$PlayerID)",
+                                        y=names(player_cum_avg[3]),
+                                        fill="as.factor(player_cum_avg$PlayerID)"))+
+                      ggtitle(names(player_cum_avg[3]))+
                       geom_bar(stat="identity", width=.5, show.legend = FALSE)+
                       xlab("PlayerID")+
                       ylab(names(players_ds[p]))+  
                       labs(title="Fantasyfootball", 
-                           subtitle=names(players_ds[p]), 
+                           subtitle=names(player_cum_avg[3]), 
                            aption="Source: Fantasyfootball")+
                       theme_economist(base_size=8)+theme(axis.text.y = element_text(size=5))+
                       theme(axis.text.x = element_text(angle=65, vjust=0.6))
            print(bar_plot)
-       }
+   }
 }
 
 ```
