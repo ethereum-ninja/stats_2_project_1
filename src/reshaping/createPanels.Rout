@@ -40,11 +40,6 @@ The following objects are masked from ‘package:base’:
 > library(purrr)
 > library(tibble)
 > library(naniar)
-Registered S3 methods overwritten by 'ggplot2':
-  method         from 
-  [.quosures     rlang
-  c.quosures     rlang
-  print.quosures rlang
 > 
 > 
 > createPanelList <- function(tibble){
@@ -65,4 +60,4 @@ Registered S3 methods overwritten by 'ggplot2':
 > 
 > proc.time()
    user  system elapsed 
-  0.610   0.160   0.551 
+  0.691   0.164   0.633 

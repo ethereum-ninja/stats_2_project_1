@@ -28,8 +28,8 @@ Type 'q()' to quit R.
 > 
 > 
 > filterUnwantedVariables <- function(tibble){
-+   temp_tibble = tibble %>% select(PlayerID, Week, Position, Opponent, TeamIsHome,
-+                                   GameDate, PassingCompletions,
++   temp_tibble = tibble %>% select(PlayerID, Name, Week, Position, Opponent, TeamIsHome,
++                                   GameDate, PassingCompletions, Result,
 +                                   PassingAttempts, PassingCompletionPercentage,
 +                                   PassingYards, PassingYardsPerAttempt, PassingTouchdowns,
 +                                   PassingInterceptions, PassingRating, RushingAttempts,
@@ -38,6 +38,7 @@ Type 'q()' to quit R.
 +   return(temp_tibble)
 + }
 > 
+> 
 > proc.time()
    user  system elapsed 
-  0.292   0.136   0.225 
+  0.606   0.165   0.549 
