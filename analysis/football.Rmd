@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(sqldf)
 library(rjson)
 library(naniar)
+library(purrr)
+library(tidyverse)
 ```
 
 
@@ -18,15 +20,6 @@ library(naniar)
 load("data/.RData")
 ```
 
-
-```{r}
-
-defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
-
-defensive_positions$StatSummary = c(NULL)
-
-
-```
 
 ###  1.7.2 Team Defensive Stats
 
@@ -38,47 +31,49 @@ team_defense$StatSummary = c(NULL)
 
 ```
 
-##  Defensive Players and team defense by week
-
-```{r}
-defensive_players_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM defensive_positions
-                                    GROUP BY Week, FantasyPosition")
-
-team_defense_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM team_defense
-                                    GROUP BY Week, FantasyPosition")
-
-# this looks good some teams are on bye in certain weeks
-```
-
 ### Do some averages for Defense before stitching on to QB data
 
 ```{r}
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
 
-team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>%
-               mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints))
-#               mutate(PlayerName = paste(FirstName," ",LastName))
+team_defense = team_defense %>% dplyr::select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
+
 attach(team_defense)
   
-#team_defense$Week = as.factor(team_defense$Week)  
-
-sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDER BY Team, Week")
 ```
 
 ## Add defensive matchups
 
 ```{r}
 
-QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team')) 
+
+#This only adds the current weeks matchup - we need next week's matchup as a target
+
+team_defense_custom = sqldf("SELECT Team
+                                    ,Week 
+                                    ,(Sacks * 4
+                                    +QuarterbackHits * 3
+                                    +Interceptions * 7
+                                    +SackYards * 2) as PassingDefense
+                                    ,PointsAllowedByDefenseSpecialTeams
+                                    FROM team_defense")
+#scheme: weight interceptions, qbsacks, quarterbackhits, passesdefended
+
+plot(team_defense_custom$PassingDefense, team_defense_custom$PointsAllowedByDefenseSpecialTeams)
+
+team_defensive_rankings = team_defense_custom %>% 
+                              #filter(Week > 1 & Week < 17)
+                              group_by(Team) %>%
+                              arrange(Week) %>%
+                              mutate(
+                                AvgPassDefense = cumsum(PassingDefense)/Week #Account for bye week....
+                              )
+QBCrossSectional$Week = as.numeric(QBCrossSectional$Week)
+
+hist(team_defensive_rankings$AvgPassDefense)
+
+sqldf("SELECT * FROM team_defensive_rankings WHERE Team = 'LAC'")
 
 ```
 
@@ -89,8 +84,9 @@ QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, 
 ```{r}
 
 #Should we just train on second half of 2017?
-QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveOverlay %>% group_by(PlayerID) %>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
+QBCrossSectionalCumulativePassYards = QBCrossSectional %>% group_by(PlayerID)%>% filter(n() >= 8)%>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
         , CumulativeAveragePassingTouchdowns=cummean(PassingTouchdowns)
+        , CumulativeAveragePassingInterceptions=cummean(PassingInterceptions)
         , CumulativeAveragePassingRating=cummean(PassingRating)
         , CumulativeAverageCompletions = cummean(PassingCompletions) # not sure that completions matter much - most leagues don't reward them
         , CumulativeAverageCompletionPercentage = cummean(PassingCompletionPercentage)
@@ -106,48 +102,194 @@ QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveO
         , CumulativeMinPassingRating = cummin(PassingRating)
         , CumulativeMinCompletions = cummin(PassingCompletions)
         , CumulativeMinPassYardsPerAttempt = cummin(PassingYardsPerAttempt)
-        #, LastWeekQuarterBackRating = lag(PassingRating) by leading target variable to t+1, the current values are implicitly lagged
-        #, LastWeekPassingYards = lag(PassingYards)
-        #, LastWeekPassingTouchdowns = lag(PassingTouchdowns)
         , NextWeekFantasyPoints = lead(FantasyPoints) #Target Variable
-        , NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
+        , NextOpponent = lead(Opponent)
+        #, NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
       )
+
+
+QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalCumulativePassYards %>% left_join(team_defensive_rankings, by = c('Week'='Week', 'NextOpponent'='Team')) 
 
 QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
 final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
 write.csv(final_ds, 'test.csv')
 attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
 
+
+sqldf("SELECT PlayerID, Week, NextOpponent, AvgPassDefense, PassingDefense FROM QBCrossSectionalDefensiveOverlayCumulativePassYards WHERE Opponent = 'PHI' ORDER BY Week")
+
+
+## We need to filter this out for QBs that only played part of a game (limit by pass attempts?) See jets Defense 
+## in week 7, matches back to two QBs
+
+
+sqldf("SELECT
+          NextOpponent,
+      COUNT(*) FROM QBCrossSectionalDefensiveOverlayCumulativePassYards GROUP BY NextOpponent")
+
+sqldf("SELECT
+          * FROM QBCrossSectionalDefensiveOverlayCumulativePassYards WHERE NextOpponent
+      IS NULL AND Week <> 17
+      ORDER BY PlayerID, Week")
+
+
+
 ```
+
 ```{r}
-model.data = QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(Week > 1 & Week < 17) %>% ungroup() %>% select(c(NextWeekFantasyPoints, NextWeekDefensiveMatchup, CumulativeAveragePassingRating, CumulativeMinPassingRating, CumulativeMaxPassingYards))
+QBCrossSectional %>% filter(PassingAttempts <= 5)
+summary(QBCrossSectional)
+```
+
+
+```{r}
+
+model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns', 'CumulativeAveragePassingInterceptions'
+                , 'CumulativeAveragePassingRating', 'CumulativeAverageCompletions', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingAttempts', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions', 'CumulativeMaxPassYardsPerAttempt', 'CumulativeMinPassingTouchdowns', 'CumulativeMinPassingYards', 'CumulativeMinPassingAttempts', 'CumulativeMinPassingRating')
+
+model.data = QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(Week > 1 & Week < 17) %>% ungroup() %>% 
+  select(model_cols) %>% drop_na()
+#model.data$Week = as.factor(model.data$Week) 
+
+summary(model.data)
 model.basic = lm(NextWeekFantasyPoints~., data=model.data)
 summary(model.basic)
 plot(model.basic)
-
+write.csv(model.data, 'model_data.csv')
 ```
 
 ```{r}
-pairs(model.data, lower.panel = NULL)
+#pairs(model.data, lower.panel = NULL)
+plot(model.data$AvgPassDefense, model.data$NextWeekFantasyPoints)
+```
+
+## Run Lasso/Ridge Regression
+
+```{r}
+library(glmnet)
+
+x_var <- model.matrix(NextWeekFantasyPoints~. , model.data)[,-1]
+y_var <- model.data$NextWeekFantasyPoints
+lambda_seq <- 10^seq(2, -2, by = -.1)
+
+# Splitting the data into test and train
+set.seed(86)
+train = sample(1:nrow(x_var), nrow(x_var)/2)
+test = (-train)
+y_test = y_var[test]
+
+cv_output <- cv.glmnet(x_var[train,], y_var[train], 
+            alpha = 1)
+
+# identifying best lamda
+best_lam <- cv_output$lambda.min
+
+lasso_best <- glmnet(x_var[train,], y_var[train], alpha = 1, lambda = best_lam)
+pred_lasso <- predict(lasso_best, s = best_lam, newx = x_var[test,])
+final_lasso <- cbind(y_var[test], pred_lasso)
+coef(lasso_best)
+
+ridge_lambda <- 10^seq(10, -2, length = 100)
+
+cv_output_ridge <- cv.glmnet(x_var[train,], y_var[train], 
+            alpha = 0)
+
+best_lam_ridge <- cv_output_ridge$lambda.min
+
+best_ridge = glmnet(x_var, y_var, alpha = 0, lambda = best_lam_ridge)
+
+ridge_pred <- predict(best_ridge, s = best_lam_ridge, newx = x_var[test,])
+final_ridge <- cbind(y_var[test], ridge_pred)
+coef(best_ridge)
+
+
+
+#pred_linear <- predict(model.basic, newx = x_var[test,])
+#final_linear <- cbind(y_var[test], pred_linear)
+#coef(model.basic)
+
 
 ```
+
+
+
+
 ```{r}
-team_defense_custom = sqldf("SELECT Team
+QBS2018 = getFootballData(URL_2018) %>% filter(Position == 'QB') %>% filterUnwantedVariables()
+team_defense_2018 = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2018&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
+team_defense_2018$StatSummary = c(NULL)
+
+
+team_defense_custom_2018 = sqldf("SELECT Team
                                     ,Week 
                                     ,(Sacks * 4
                                     +QuarterbackHits * 3
-                                    +Interceptions * 5
+                                    +Interceptions * 7
                                     +SackYards * 2) as PassingDefense
                                     ,PointsAllowedByDefenseSpecialTeams
-                                    FROM team_defense")
+                                    FROM team_defense_2018")
 #scheme: weight interceptions, qbsacks, quarterbackhits, passesdefended
 
-plot(team_defense_custom$PassingDefense, team_defense_custom$PointsAllowedByDefenseSpecialTeams)
 
-team_defensive_rankings = team_defense_custom %>% 
+
+```
+
+```{r}
+
+plot(team_defense_custom_2018$PassingDefense, team_defense_custom_2018$PointsAllowedByDefenseSpecialTeams)
+
+
+team_defensive_rankings_2018 = team_defense_custom_2018 %>% 
+                              #filter(Week > 1 & Week < 17)
                               group_by(Team) %>%
                               arrange(Week) %>%
                               mutate(
-                                AvgPassDefense = cummean(coalesce(lag(PassingDefense), PassingDefense))
+                                AvgPassDefense = cumsum(PassingDefense)/Week #Account for bye week....
                               )
+QBS2018$Week = as.numeric(QBS2018$Week)
+
+hist(team_defensive_rankings_2018$AvgPassDefense)
+
 ```
+
+## Finalize Test Set (2018 data)
+
+```{r}
+
+
+#Should we just train on second half of 2017?
+QBCrossSectionalCumulativePassYards2018 = QBS2018 %>% group_by(PlayerID)%>% filter(n() >= 8)%>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
+        , CumulativeAveragePassingTouchdowns=cummean(PassingTouchdowns)
+        , CumulativeAveragePassingInterceptions=cummean(PassingInterceptions)
+        , CumulativeAveragePassingRating=cummean(PassingRating)
+        , CumulativeAverageCompletions = cummean(PassingCompletions) # not sure that completions matter much - most leagues don't reward them
+        , CumulativeAverageCompletionPercentage = cummean(PassingCompletionPercentage)
+        , CumulativeMaxPassingTouchdowns = cummax(PassingTouchdowns) 
+        , CumulativeMaxPassingYards = cummax(PassingYards)
+        , CumulativeMaxPassingAttempts = cummax(PassingAttempts)
+        , CumulativeMaxPassingRating = cummax(PassingRating)
+        , CumulativeMaxCompletions = cummax(PassingCompletions)
+        , CumulativeMaxPassYardsPerAttempt = cummax(PassingYardsPerAttempt)
+        , CumulativeMinPassingTouchdowns = cummin(PassingTouchdowns) 
+        , CumulativeMinPassingYards = cummin(PassingYards)   #Let's get mins to capture downside risk
+        , CumulativeMinPassingAttempts = cummin(PassingAttempts)
+        , CumulativeMinPassingRating = cummin(PassingRating)
+        , CumulativeMinCompletions = cummin(PassingCompletions)
+        , CumulativeMinPassYardsPerAttempt = cummin(PassingYardsPerAttempt)
+        , NextWeekFantasyPoints = lead(FantasyPoints) #Target Variable
+        , NextOpponent = lead(Opponent)
+        #, NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
+      )
+
+
+QBCrossSectionalDefensiveOverlayCumulativePassYards2018 = QBCrossSectionalCumulativePassYards2018 %>% left_join(team_defensive_rankings_2018, by = c('Week'='Week', 'NextOpponent'='Team')) 
+
+
+
+
+test.data = QBCrossSectionalDefensiveOverlayCumulativePassYards2018 %>% filter(Week > 1 & Week < 17) %>% ungroup() %>% select(model_cols) %>% drop_na()
+
+
+
+```
+
