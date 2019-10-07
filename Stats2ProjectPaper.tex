@@ -136,9 +136,13 @@ week.
 
 \section{Data Description}\label{data-description}
 
+The \textbf{fantasydata.com} is leading sports data company, providing real-time post games feeds across all major sports to both fantasy and other companies. For this exercise NFL data was retrived through API calls for predicting quarterback's performance in next match by estimating fantasypoints. For model building 17 weeks of data was obtained for around 56 players for season 2017. This dataset contains 453 quarterabck's observations from 17 matches and 512 observations of opponent's team. This observations contains 13 explanatory variables for quarterback and 18 derived from defensive statistics i.e. from opponent team. For the first analysis in this paper, we have focused on predictin Fantasypoints in the next match based on data available till current game. Since this is weekly data for individual player, The second analysis expands this anlalys to building time series model to forecast performance in next matches. More information on the details can be found in the analyses that follow. 
+
 \section{Exploratory Analysis}\label{exploratory-analysis}
 
-Data obtained through API calls from https://fantasydata.com/ was alomst clean. Section 6 of appendix shows data is clean and doesn't contain any missing values. This dataset contains statistics of weekly performance, All possible variables were examined during exploratory analysis and variables which found to be influence on fantasyPoints (Target Variable) were selected. Thirteen base predictors were found and 18 are derived (Cumulative sum) from the base. Scatterplots of base and derived predictors have been added in section 9 of the appendix. Here is the Corroleogram for base and derived predictors. 
+Data was retrived from real-time post games feed made avaialble by fantasydata website. Quarterback with 453 observations for about 56 players and Defensive statistics with 512 observations was analyzed for missing inforamtion. Data appeared to be clean. Section 6 of appendix I shows data is clean, there no missing values as well and therefore no data cleaning operation is required. This dataset contains statistics of weekly performance, All possible variables were examined during exploratory analysis and variables which found to have influence on fantasyPoints (Target Variable) were selected. Thirteen base predictors were found with linear relationship with fantasypoints and 18 are derived from defensive statistics. Scatterplots of base and derived predictors have been added in section 9 of the appendix. Here is the Corroleogram for base and derived predictors. 
+
+
 \graphicspath{ {images/} }
 \includegraphics{img001.png}
 
@@ -171,15 +175,34 @@ capture the variation in the response. Because we are not interested in
 quantifying our uncertainty, we don't make any assumptions about the
 distribution of the residuals.
 
+Fit diagnostics are given in the set of plots represented in below plot.
+
+\paragraph{Residual Plots} 
+An examination of the residual plots fitted data shows a more randomized pattern for both the regular and studentized residuals.  The residual Q-Q plot shows a nice linear trend, and the residual histogram is very nearly normally distributed.
+\paragraph{Influential point analysis}
+only one observation stood out immediately on the Cook’s D plot, so it is necessary to examine this outlier and see what is going on.  Upon further inspection, the data point appears to be valid, so there is no good reason to exclude it from the analysis, and we can proceed with caution.
+\paragraph{Linearity}
+the FantasyPoints by 13 predictors do appear to be linear, as per scatterplots in section 9 of the appendix.
+\paragraph{Normality}
+As shown in the QQ plot. Residuals are normally distributed, it means FantasyPoints do appear to be linear with defensive variables AvgPassDefense and cumulative sum variables dervived from defensive statistics. 
+\paragraph{Independence}
+for Multiple linear regression, model is used to predict performance of quarterback in the next game based on today's performance taking into consideration 
+oppoent't performance befor playing against them. so data is assumed to be independence.
+\paragraph{Constant Variance}
+Residual vs fitted plot shows random cloud which indicates there is constant variance.
+
+\graphicspath{ {images/} }
+\includegraphics{img002.png}
+
 \section{Objective Two}\label{objective-two}
 
 \renewcommand\refname{Conclusion}
 \bibliography{stats2proj.bib}
 
-\begin{appendices}
-\section{Appendix}
-  \includepdf[pages=-]{eda/eda_summary.pdf}
-\end{appendices}
+
+
+\includepdf[pages=-]{eda/eda_summary.pdf}
+
 
 
 \end{document}
