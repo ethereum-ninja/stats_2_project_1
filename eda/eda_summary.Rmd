@@ -1,13 +1,14 @@
 ---
-title: "Exploratory Data Analysis"
+title: "Appendix-I"
+subtitle: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
-date: "September 29, 2019"
+date: "Oct 5, 2019"
 output:
   pdf_document: default
   html_document: default
   word_document: default
 ---
-# 1 : Load required libraries
+#1 : Load required libraries
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -27,7 +28,7 @@ library(knitr)
 
 ```
 
-# 2 : Load Quarterback Crosssectional data
+#2 : Load Quarterback Crosssectional data
 
 ```{r color="black"}
 load("../analysis/data/.RData")
@@ -39,7 +40,7 @@ attach(QBCrossSectional)
 
 Drop rushing yards per attempt
 
-# 3 : Defensive stats 
+#3 : Defensive stats 
 
     ##  3.1 : Team Defensive Stats
 
@@ -246,7 +247,7 @@ ggcorrplot(corr, hc.order = TRUE,
 ```{r}
 par(mfrow=c(1, 2))  # divide graph area in 2 columns
 target <- QBCrossSectional$FantasyPoints
-plot(density(target), main="CrossSectional Dataset: FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
+plot(density(target), main="FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
 polygon(density(target), col="red")
 
 ```
@@ -470,7 +471,7 @@ for(p in 2:20){
     ## 9.1 : Scatterplots for base features
 
 ```{r}
-for (i in 2:15) {
+for (i in 3:15) {
   base_scatter <- eda_base %>% 
                   ggplot(aes_string(y="FantasyPoints",x=names(eda_base[i]),color="as.numeric(Week)")) + 
                   geom_point()+geom_smooth(method="lm",se=F)+
@@ -495,7 +496,7 @@ for (i in 2:15) {
 
 ```{r}
 
-for (i in 2:20) {
+for (i in 3:20) {
   derived_scatter <- eda_derived %>% 
                      ggplot(aes_string(y="FantasyPoints",x=names(eda_derived[i]),color="as.numeric(Week)"))+ 
                      geom_point()+
