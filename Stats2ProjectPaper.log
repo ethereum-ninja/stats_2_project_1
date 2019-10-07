@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.5.8)  7 OCT 2019 02:02
+This is pdfTeX, Version 3.14159265-2.6-1.40.20 (TeX Live 2019) (preloaded format=pdflatex 2019.5.8)  7 OCT 2019 08:50
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -822,7 +822,7 @@ Package pdftex.def Info: images/img001.png  used on input line 147.
 File: images/img002.png Graphic file (type png)
 <use images/img002.png>
 Package pdftex.def Info: images/img002.png  used on input line 195.
-(pdftex.def)             Requested size: 469.75769pt x 449.81516pt.
+(pdftex.def)             Requested size: 314.46735pt x 301.11732pt.
 
 [3]
 No file Stats2ProjectPaper.bbl.
@@ -2310,12 +2310,12 @@ Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 208.
  ) 
 Here is how much of TeX's memory you used:
  14875 strings out of 492616
- 221253 string characters out of 6129482
+ 221255 string characters out of 6129482
  342110 words of memory out of 5000000
  18423 multiletter control sequences out of 15000+600000
  38096 words of font info for 53 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 41i,18n,46p,1063b,499s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 41i,18n,46p,1065b,499s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/local/texlive/2019/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}</usr/local/
 texlive/2019/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></usr/local/texlive/20
 19/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></usr/local/texlive/2019/texmf-d
@@ -2327,7 +2327,7 @@ al/texlive/2019/texmf-dist/fonts/type1/public/lm/lmri12.pfb></usr/local/texlive
 /2019/texmf-dist/fonts/type1/public/lm/lmtk10.pfb></usr/local/texlive/2019/texm
 f-dist/fonts/type1/public/lm/lmtt10.pfb></usr/local/texlive/2019/texmf-dist/fon
 ts/type1/public/lm/lmtti10.pfb>
-Output written on Stats2ProjectPaper.pdf (107 pages, 3896596 bytes).
+Output written on Stats2ProjectPaper.pdf (107 pages, 3896576 bytes).
 PDF statistics:
  2436 PDF objects out of 2487 (max. 8388607)
  1651 compressed objects within 17 object streams
