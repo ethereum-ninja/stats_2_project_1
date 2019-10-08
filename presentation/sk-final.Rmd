@@ -1,0 +1,483 @@
+---
+title: "eda_sk"
+author: "Sean Kennedy"
+date: "October 7, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rjson)
+library(purrr)
+library(sqldf)
+#load("../analysis/data/.RData")
+
+```
+
+```{r RE_LOAD_DATA}
+#Kev's stuff was dropping observations
+
+
+#need this for creating full defensive set
+QBCrossSectional_ALL_OBSERVATIONS = getFootballPlayersJSON("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=5000&group=&filter=&filters.position=2&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
+QBCrossSectional_ALL_OBSERVATIONS = map(QBCrossSectional_ALL_OBSERVATIONS, removeColumnsWithWrongLength)
+QBCrossSectional_ALL_OBSERVATIONS = map_df(QBCrossSectional_ALL_OBSERVATIONS, as_tibble) 
+
+QBCrossSectional_ALL_OBSERVATIONS_2018 = getFootballPlayersJSON("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=5000&group=&filter=&filters.position=2&filters.team=&filters.teamkey=&filters.season=2018&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
+QBCrossSectional_ALL_OBSERVATIONS_2018 = map(QBCrossSectional_ALL_OBSERVATIONS_2018, removeColumnsWithWrongLength)
+QBCrossSectional_ALL_OBSERVATIONS_2018 = map_df(QBCrossSectional_ALL_OBSERVATIONS_2018, as_tibble) 
+```
+
+
+### Helper functions
+
+```{r HELPER_FUNCTIONS}
+addByeWeekDefensiveStats = function(data){
+for(team in as.factor(data$Team))
+{
+  for(week in seq(1, 17,by=1))
+  {
+      bye_week = data %>% filter(Team == team & Week == week)
+      if(nrow(bye_week) == 0)
+      {
+        last_week = data %>% filter(Team == team & Week == week - 1)
+        if(nrow(last_week) != 0){
+        last_week$Week = week
+        data = rbind(data, last_week)
+        }
+      }
+    }
+}
+  return(data)
+}
+
+calc_model_summary = function(y, y_predicted){
+
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+
+# R squared
+rsq <- 1 - sse / sst
+rsq
+return(c(sst, sse, rsq))
+}
+```
+
+```{r MODEL_HYPER_PARAMS}
+start_week = 2
+end_week = 17
+
+min_score = 15
+max_score = 25#max(all_test_data$NextWeekFantasyPoints, na.rm = TRUE)
+
+sack_weight = 4
+qb_hit_weight = 3
+interception_weight = 7
+pass_defended_weight = 5
+```
+
+```{r LOAD_DEFENSIVE_STATS}
+url_offense_2017 = getURL()
+url_offense_2018 = getURL(year=2018)
+url_defense_2017 = getURL(position = 7)
+url_defense_2018 = getURL(position = 7, year=2018)
+
+defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'Opponent', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
+
+QBCrossSectional = getFootballData(url_offense_2017) %>% filterUnwantedVariables() %>% filter(Position == "QB") %>% addDerivedFeatures()
+QBCrossSectional_2018 = getFootballData(url_offense_2018) %>% filterUnwantedVariables() %>% filter(Position == "QB") %>% addDerivedFeatures()
+
+
+DefensiveStats = getFootballData(url_defense_2017) %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
+DefensiveStats_2018 = getFootballData(url_defense_2018) %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
+
+DefensiveStats = sqldf(glue("SELECT Team
+                                    ,Week 
+                                    ,Opponent as OffensiveMatchup
+                                    ,(Sacks * {sack_weight}
+                                    +QuarterbackHits *  {qb_hit_weight}
+                                    +Interceptions * {interception_weight}
+                                    +PassesDefended * {pass_defended_weight}) as PassingDefense
+                                    ,PointsAllowedByDefenseSpecialTeams
+                                    FROM DefensiveStats"))
+
+DefensiveStats_2018 = sqldf(glue("SELECT Team
+                                    ,Week 
+                                    ,Opponent as OffensiveMatchup
+                                    ,(Sacks * {sack_weight}
+                                    +QuarterbackHits *  {qb_hit_weight}
+                                    +Interceptions * {interception_weight}
+                                    +PassesDefended * {pass_defended_weight}) as PassingDefense
+                                    ,PointsAllowedByDefenseSpecialTeams
+                                    FROM DefensiveStats_2018"))
+
+```
+
+```{r STITCH_QB_MATCHUP_TO_DEFENSE}
+OffensiVeQBFantasyPointsByTeamAndWeek = sqldf("SELECT 
+                                                    Team,
+                                                    Week,
+                                                    SUM(FantasyPoints) as FantasyPointsAllowedToQB
+                                              FROM QBCrossSectional_ALL_OBSERVATIONS
+                                              GROUP BY Team, Week")
+
+OffensiVeQBFantasyPointsByTeamAndWeek2018 = sqldf("SELECT 
+                                                    Team,
+                                                    Week,
+                                                    SUM(FantasyPoints) as FantasyPointsAllowedToQB
+                                              FROM QBCrossSectional_ALL_OBSERVATIONS_2018
+                                              GROUP BY Team, Week")
+DefensiveStats = sqldf("SELECT 
+                          ds.*
+                          , FantasyPointsAllowedToQB FROM DefensiveStats ds
+                        LEFT JOIN OffensiVeQBFantasyPointsByTeamAndWeek off ON ds.OffensiveMatchup =  off.Team AND ds.Week = off.Week")
+
+DefensiveStats_2018 = sqldf("SELECT 
+                          ds.*
+                          , FantasyPointsAllowedToQB FROM DefensiveStats_2018 ds
+                        LEFT JOIN OffensiVeQBFantasyPointsByTeamAndWeek2018 off ON ds.OffensiveMatchup =  off.Team AND ds.Week = off.Week")
+
+
+```
+
+```{r AGG_DEFENSIVE_STATS} 
+DefensiveStats = addByeWeekDefensiveStats(DefensiveStats)  
+DefensiveStats_2018 = addByeWeekDefensiveStats(DefensiveStats_2018)
+
+DefensiveStats = DefensiveStats %>% 
+                              group_by(Team) %>%
+                              arrange(Week) %>%
+                              mutate(
+                                AvgPassDefense = cummean(PassingDefense) 
+                               , AvgPointsAllowed = cummean(PointsAllowedByDefenseSpecialTeams) 
+                               , AvgQBPointsAllowed = cummean(FantasyPointsAllowedToQB) 
+                              )
+
+DefensiveStats_2018 = DefensiveStats_2018 %>% 
+                              group_by(Team) %>%
+                              arrange(Week) %>%
+                              mutate(
+                                AvgPassDefense = cummean(PassingDefense) 
+                                , AvgPointsAllowed = cummean(PointsAllowedByDefenseSpecialTeams)
+                                , AvgQBPointsAllowed = cummean(FantasyPointsAllowedToQB)
+                              )
+
+
+all_train_data =  QBCrossSectional %>% 
+  left_join(DefensiveStats, by = c('Week'='Week', 'NextOpponent'='Team'))
+  
+all_test_data = QBCrossSectional_2018 %>% 
+  left_join(DefensiveStats_2018, by = c('Week'='Week', 'NextOpponent'='Team'))
+  
+write.csv(all_train_data, 'train_data.csv')
+write.csv(all_test_data, 'test_data.csv')
+write.csv(DefensiveStats %>% union_all(DefensiveStats_2018), 'defense.csv')
+
+```
+
+
+
+
+```{r RUN_BASE_LINEAR_MODEL}
+
+#feature ofs interest
+all_model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns',                  'CumulativeAveragePassingRating', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions', 'CumulativeMinPassingTouchdowns',  'AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'PlayerID', 'ShortName', 'Week' ,'CumulativeMaxFantasyPoints', 'CumulativeMinFantasyPoints', 'AvgPointsAllowed')
+
+
+
+#columns for identifying rows (not included in model)
+id_cols = c('ShortName', 'PlayerID', 'Week')
+
+
+#subset of features - hand selected
+
+simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','CumulativeAverageFantasyPoints', 'ShortName', 'PlayerID', 'Week')
+
+# comment out to run full model
+model_cols = simple_model
+
+model.data = all_train_data %>% 
+  ungroup() %>% 
+  filter(Week > start_week & Week < end_week) %>% 
+  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  select(model_cols) %>% 
+  drop_na()
+
+#summary(model.data)
+model.basic = lm(NextWeekFantasyPoints~., data=model.data %>% select(-id_cols))
+
+plot(model.basic)
+pairs(model.data %>% select(-id_cols))
+
+summary(model.basic)
+confint(model.basic)
+
+plot_data = model.data %>% select(-id_cols)
+plot_data$predicted = predict(model.basic)
+plot_data$residuals = residuals(model.basic)
+
+plot_data %>% 
+  gather(key = 'iv', value='x', -NextWeekFantasyPoints, -predicted, -residuals) %>%
+  ggplot(aes(x=x, y=NextWeekFantasyPoints)) +
+  geom_segment(aes(xend = x, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  ggtitle('Residual Plots by Feature') +
+  facet_grid(~ iv, scales = "free_x") +  # Split panels here by `iv`
+  theme_bw()
+
+
+write.csv(plot_data, 'model_data.csv')
+
+
+```
+
+```{r RE_FIT_NO_OUTLIERS}
+outliers = model.data[c(151, 23, 228), ]
+
+model.data.no_outliers = model.data[-c(151, 23, 228), ]
+
+summary(model.data.no_outliers)
+model.basic.no_outliers = lm(NextWeekFantasyPoints~., data=model.data.no_outliers %>% select(-id_cols))
+
+summary(model.basic.no_outliers)
+plot(model.basic.no_outliers)
+pairs(model.data.no_outliers %>% select(-id_cols))
+
+plot_data_no_ol = model.data.no_outliers %>% select(-id_cols)
+plot_data_no_ol$predicted = predict(model.basic.no_outliers)
+plot_data_no_ol$residuals = residuals(model.basic.no_outliers)
+
+plot_data_no_ol %>% 
+  gather(key = 'iv', value='x', -NextWeekFantasyPoints, -predicted, -residuals) %>%
+  ggplot(aes(x=x, y=NextWeekFantasyPoints)) +
+  geom_segment(aes(xend = x, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  ggtitle('Residual Plots by Feature') +
+  facet_grid(~ iv, scales = "free_x") +  # Split panels here by `iv`
+  theme_bw()
+
+confint(model.basic.no_outliers)
+write.csv(plot_data_no_ol, 'model_data_no_outliers.csv')
+
+
+
+```
+
+### Outliers do not have a significant impact
+
+```{r LASSO_RIDGE}
+library(glmnet)
+
+all.model.data = all_train_data %>% 
+  ungroup() %>% 
+  filter(Week > start_week & Week < end_week) %>% 
+  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  select(all_model_cols) %>% 
+  drop_na()
+
+x_var <- model.matrix(NextWeekFantasyPoints~. , all.model.data %>% select(-id_cols))[,-1]
+y_var <- all.model.data$NextWeekFantasyPoints
+lambda_seq <- 10^seq(2, -2, by = -.1)
+
+# Splitting the data into test and train
+set.seed(86)
+
+train = sample(1:nrow(x_var), nrow(x_var)/2)
+test = (-train)
+y_test = y_var[test]
+
+cv_output_lasso <- cv.glmnet(x_var, y_var, 
+            alpha = 1, nfolds=10)
+
+# identifying best lamda
+best_lam <- cv_output_lasso$lambda.min
+
+best_lasso <- glmnet(x_var[train,], y_var[train], alpha = 1, lambda = best_lam)
+pred_lasso <- predict(best_lasso, s = best_lam, newx = x_var[test,])
+final_lasso <- cbind(y_var[test], pred_lasso)
+
+ridge_lambda <- 10^seq(10, -2, length = 100)
+cv_output_ridge <- cv.glmnet(x_var[train,], y_var[train], 
+            alpha = 0, nfolds=10)
+
+best_lam_ridge <- cv_output_ridge$lambda.min
+best_ridge = glmnet(x_var[train,], y_var[train], alpha = 0, lambda = best_lam_ridge)
+
+ridge_pred <- predict(best_ridge, s = best_lam_ridge, newx = x_var[test,])
+final_ridge <- cbind(y_var[test], ridge_pred)
+
+pred_linear <- predict.glm(model.basic, newdata = data.frame(x_var[test,]))
+
+
+coef(best_ridge)
+coef(best_lasso)
+coef(model.basic)
+
+
+
+final_linear <- cbind(y_var[test], pred_linear)
+
+plot(cv_output_ridge)
+plot(cv_output_lasso)
+plot(cv_output_ridge$glmnet.fit)
+plot(cv_output_lasso$glmnet.fit)
+
+cbind(calc_model_summary(y_var[test], ridge_pred), 
+      calc_model_summary(y_var[test], pred_linear),
+      calc_model_summary(y_var[test], pred_lasso))
+
+
+```
+```{r PREDICT_2018}
+
+test.data = all_test_data %>% 
+  ungroup() %>% 
+  filter(Week > start_week & Week < end_week) %>% 
+  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  select(all_model_cols) %>% 
+  drop_na()
+
+
+out_of_sample_X =  model.matrix(NextWeekFantasyPoints~. , test.data %>% select(-id_cols))[,-1]
+out_of_sample_Y =  test.data$NextWeekFantasyPoints
+
+ridge_pred_test = predict(best_ridge, s=best_lam_ridge, newx=out_of_sample_X)
+lasso_pred_test = predict(best_lasso, s=best_lam_ridge, newx=out_of_sample_X)
+#linear_pred_test = predict.glm(model.basic, newdata=test.data[,-1])
+
+
+ridge_predictions = data.frame(out_of_sample_Y, ridge_pred_test)
+ggplot(ridge_predictions, aes(x=out_of_sample_Y, y=ridge_pred_test)) + geom_point() + geom_smooth(method=lm) + ggtitle('Ridge Regression Predictions 2018 Season')
+
+lasso_predictions = data.frame(out_of_sample_Y, lasso_pred_test)
+ggplot(lasso_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm) + ggtitle('Lasso Regression Predictions 2018 Season')
+
+#linear_predictions = data.frame(out_of_sample_Y, linear_pred_test)
+#ggplot(linear_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season')
+
+
+
+
+
+
+```
+
+
+
+### Offensive EDA
+  
+  
+  ## Box Plots/Histograms for QB Data Overall 
+    
+    # Raw Target Variable  
+
+
+```{r FEATURE_DISTRIBUTION_TRAIN}
+
+model.data %>% 
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(value)) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Train Data Variable Distribution') +
+  facet_grid(.~variable, scales="free_x") 
+
+model.data %>% 
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(log(value))) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Train Data Variable Log Distribution') +
+  facet_grid(.~variable, scales="free_x") 
+
+```
+
+- log data is slightly crappy
+
+
+```{r FEATURE_DISTRIBUTION_TEST}
+test.data %>% 
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(value)) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Test Data Variable Distribution') +
+  facet_wrap(.~variable,scales = 'free_x') 
+
+
+test.data %>% 
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(log(value))) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Test Data Variable Log Distribution') +
+  facet_wrap(.~variable,  ncol=1) 
+
+```
+```{r LINEAR_FEATURE_SEARCH}
+
+linear.search.data = all_train_data %>% 
+  ungroup() %>% 
+  filter(Week > 2 & Week < 17 & n() >= 8) %>% 
+  select(all_model_cols) %>%
+  select(-id_cols) %>%
+  drop_na()
+
+for(f in names(linear.search.data[,-1])){
+ lg = ggplot(data=linear.search.data, aes_string(x=f, y="NextWeekFantasyPoints")) + 
+   geom_point() + 
+   geom_smooth(method=lm )
+ print(lg)
+  
+}
+
+```
+
+
+```{r HEAT_MAPS}
+library(reshape2)
+corr_data = all_train_data %>% drop_na() %>% select(model_cols) %>% ungroup() %>% select(-id_cols) 
+                          
+corr_data = round(cor(corr_data), digits = 2)
+corr_data = melt(corr_data)
+
+ggplot(data = corr_data, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed() +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+  ggtitle('Pearson Correlation for Model Features')
+
+
+
+
+
+corr_data_all = all_train_data %>% drop_na() %>% select(c('AvgPassDefense', 'NextWeekFantasyPoints', 'AvgQBPointsAllowed', 'AvgPointsAllowed')) %>% ungroup() %>% select(-c('PlayerID')) 
+                          
+corr_data_all = round(cor(corr_data_all), digits = 2)
+corr_data_all = melt(corr_data_all)
+
+ggplot(data = corr_data_all, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed() +
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
+  ggtitle('Pearson Correlation for Defensive Features')
+```

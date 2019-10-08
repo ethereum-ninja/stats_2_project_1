@@ -33,3 +33,4 @@ convertToDate <- function(extracted_date){
   temp_date <- strftime(temp_date, format = "%Y-%m-%d", usetz = FALSE)
   return(temp_date)
 }
+

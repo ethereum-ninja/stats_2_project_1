@@ -37,3 +37,4 @@ test.csv
 test.xlsm
 alex_smith.csv
 analysis/model_data.csv
+*.csv

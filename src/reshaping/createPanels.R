@@ -25,3 +25,4 @@ createPanels <- function(value, tibble){
   temp_panel = spread(data = temp_tibble, key = Week, value = temp_value)
   return(temp_panel)
 }
+
