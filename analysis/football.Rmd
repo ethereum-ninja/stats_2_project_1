@@ -18,6 +18,8 @@ library(tidyverse)
 
 ```{r loadingData, echo = FALSE}
 load("data/.RData")
+QBCrossSectional = getFootballData(URL) %>% filterUnwantedVariables() %>% filter(Position == 'QB')
+summary(QBCrossSectional)
 ```
 
 
@@ -28,18 +30,19 @@ load("data/.RData")
 team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 team_defense$StatSummary = c(NULL)
 
-
-```
-
-### Do some averages for Defense before stitching on to QB data
-
-```{r}
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
 
 team_defense = team_defense %>% dplyr::select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
 
 attach(team_defense)
+
+```
+
+### Do some averages for Defense before stitching on to QB data
+
+```{r}
+
   
 ```
 
@@ -111,28 +114,7 @@ QBCrossSectionalCumulativePassYards = QBCrossSectional %>% group_by(PlayerID)%>%
 QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalCumulativePassYards %>% left_join(team_defensive_rankings, by = c('Week'='Week', 'NextOpponent'='Team')) 
 
 QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
-final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
-write.csv(final_ds, 'test.csv')
 attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
-
-
-sqldf("SELECT PlayerID, Week, NextOpponent, AvgPassDefense, PassingDefense FROM QBCrossSectionalDefensiveOverlayCumulativePassYards WHERE Opponent = 'PHI' ORDER BY Week")
-
-
-## We need to filter this out for QBs that only played part of a game (limit by pass attempts?) See jets Defense 
-## in week 7, matches back to two QBs
-
-
-sqldf("SELECT
-          NextOpponent,
-      COUNT(*) FROM QBCrossSectionalDefensiveOverlayCumulativePassYards GROUP BY NextOpponent")
-
-sqldf("SELECT
-          * FROM QBCrossSectionalDefensiveOverlayCumulativePassYards WHERE NextOpponent
-      IS NULL AND Week <> 17
-      ORDER BY PlayerID, Week")
-
-
 
 ```
 
@@ -146,6 +128,10 @@ summary(QBCrossSectional)
 
 model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns', 'CumulativeAveragePassingInterceptions'
                 , 'CumulativeAveragePassingRating', 'CumulativeAverageCompletions', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingAttempts', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions', 'CumulativeMaxPassYardsPerAttempt', 'CumulativeMinPassingTouchdowns', 'CumulativeMinPassingYards', 'CumulativeMinPassingAttempts', 'CumulativeMinPassingRating')
+
+simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingAttempts', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions', 'CumulativeMaxPassYardsPerAttempt')
+
+model_cols = simple_model
 
 model.data = QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(Week > 1 & Week < 17) %>% ungroup() %>% 
   select(model_cols) %>% drop_na()

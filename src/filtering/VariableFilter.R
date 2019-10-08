@@ -13,7 +13,7 @@ filterUnwantedVariables <- function(tibble){
                                   PassingYards, PassingYardsPerAttempt, PassingTouchdowns,
                                   PassingInterceptions, PassingRating, RushingAttempts,
                                   RushingYards, RushingYardsPerAttempt, RushingTouchdowns,
-                                  FumblesLost, FantasyPoints, Team)
+                                  FumblesLost, FantasyPoints, Team, ShortName)
   return(temp_tibble)
 }
 

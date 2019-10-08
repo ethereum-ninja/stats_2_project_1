@@ -38,7 +38,41 @@ The explosion of weekly leagues over the course of the last few years has seen a
 #Data Description
 
 
+
 #Exploratory Analysis
+
+Data obtained through API calls from https://fantasydata.com/ was alomst clean. Section 6 of appendix shows data is clean and doesn't contain any missing values. This dataset contains statistics of weekly performance, All possible variables were examined during exploratory analysis and variables which found to be influence on fantasyPoints (Target Variable) were selected. Thirteen base predictors were found and 18 are derived (Cumulative sum) from the base. Scatterplots of base and derived predictors have been added in section 9 of the appendix. Here is the Corroleogram for base and derived predictors. 
+
+```{r echo=FALSE}
+library(grid)
+corr <- round(cor(eda_base[-1]), 1)
+
+g1 <- ggcorrplot(corr, hc.order = TRUE, 
+                 type = "full", 
+                 lab = TRUE, 
+                 lab_size = 1.5, 
+                 method="square", 
+                 colors = c("tomato2", "white", "springgreen3"), 
+                 title  ="Correlogram of Base QB features", 
+                 tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+                 ggtheme=theme_classic)
+
+corr <- round(cor(eda_derived[-1]), 1)
+
+g2 <- ggcorrplot(corr, hc.order = TRUE, 
+           type = "full", 
+           lab = TRUE, 
+           lab_size = 1.5, 
+           method="square", 
+           colors = c("tomato2", "white", "springgreen3"), 
+           title  = "Correlogram of Derived QB features", 
+           tl.cex = 7,pch=2,pch.col =3,show.diag = T,
+           ggtheme=theme_classic)
+
+gridExtra::grid.arrange(g1,g2,nrow=1)
+grid.draw(rbind(ggplotGrob(g1), ggplotGrob(g2), size = "last"))
+
+```
 
 #Objective One
 ##Model Selection

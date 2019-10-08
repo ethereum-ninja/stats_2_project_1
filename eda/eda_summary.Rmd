@@ -1,12 +1,14 @@
 ---
-title: "Exploratory Data Analysis"
+title: "Appendix-I"
+subtitle: "Exploratory Data Analysis"
 author: "Kevin Thompson, Sean Kennedy, Sachin Chavan"
-date: "September 29, 2019"
+date: "Oct 5, 2019"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
+  word_document: default
 ---
-# 1 : Load required libraries
+#1 : Load required libraries
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -26,83 +28,66 @@ library(knitr)
 
 ```
 
-# 2 : Load Quarterback Crosssectional data
+#2 : Load Quarterback Crosssectional data
 
 ```{r color="black"}
 load("../analysis/data/.RData")
-QBCrossSectional$Week <- as.factor(QBCrossSectional$Week)
+QBCrossSectional = getFootballData(URL) %>% filterUnwantedVariables() %>% filter(Position == 'QB')
+summary(QBCrossSectional)
 attach(QBCrossSectional)
+
 ```
 
 Drop rushing yards per attempt
 
-# 3 : Defensive stats 
+#3 : Defensive stats 
 
-    ## 3.1 : Player Defensive Stats
-
-
-```{r}
-
-defensive_positions = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=8&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filter#s.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatesc#ope=1&filters.rangescope=&filters.range=1")
-
-defensive_positions$StatSummary = c(NULL)
-
-
-
-
-```
-
-    ##  3.2 : Team Defensive Stats
+    ##  3.1 : Team Defensive Stats
 
 ```{r}
 
 team_defense = getFootballData("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=4000&group=&filter=&filters.position=7&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 team_defense$StatSummary = c(NULL)
 
-
-```
-
-    ## 3.3 : Defensive Players and team defense by week
-
-```{r}
-defensive_players_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM defensive_positions
-                                    GROUP BY Week, FantasyPosition")
-
-team_defense_by_week =  sqldf("SELECT 
-                                      Week, 
-                                      FantasyPosition,
-                                      Count(*)
-                                    FROM team_defense
-                                    GROUP BY Week, FantasyPosition")
-
-# this looks good some teams are on bye in certain weeks
-```
-
-    ## 3.4 : Do some averages for Defense before stitching on to QB data
-
-```{r}
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
 
-team_defense = team_defense %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') %>% group_by(Week) %>%
-               mutate(WeeklyRank = dense_rank(DefensiveFantasyPoints))
-#               mutate(PlayerName = paste(FirstName," ",LastName))
+team_defense = team_defense %>% dplyr::select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
+
 attach(team_defense)
-  
-team_defense$Week = as.factor(team_defense$Week)  
-  
-sqldf("SELECT Week, Team, WeeklyRank FROM team_defense  WHERE Week IN(1, 2) ORDER BY Team, Week")
 ```
 
     ## 3.5 : Add defensive matchups
 
 ```{r}
 
-QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, by = c('Week'='Week', 'Opponent'='Team')) 
+
+#This only adds the current weeks matchup - we need next week's matchup as a target
+
+team_defense_custom = sqldf("SELECT Team
+                                    ,Week 
+                                    ,(Sacks * 4
+                                    +QuarterbackHits * 3
+                                    +Interceptions * 7
+                                    +SackYards * 2) as PassingDefense
+                                    ,PointsAllowedByDefenseSpecialTeams
+                                    FROM team_defense")
+#scheme: weight interceptions, qbsacks, quarterbackhits, passesdefended
+
+plot(team_defense_custom$PassingDefense, team_defense_custom$PointsAllowedByDefenseSpecialTeams)
+
+team_defensive_rankings = team_defense_custom %>% 
+                              #filter(Week > 1 & Week < 17)
+                              group_by(Team) %>%
+                              arrange(Week) %>%
+                              mutate(
+                                AvgPassDefense = cumsum(PassingDefense)/Week #Account for bye week....
+                              )
+QBCrossSectional$Week = as.numeric(QBCrossSectional$Week)
+
+hist(team_defensive_rankings$AvgPassDefense)
+
+sqldf("SELECT * FROM team_defensive_rankings WHERE Team = 'LAC'")
 
 ```
 
@@ -112,8 +97,10 @@ QBCrossSectionalDefensiveOverlay = QBCrossSectional %>% left_join(team_defense, 
 
 ```{r}
 
-QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveOverlay %>% group_by(PlayerID) %>% arrange(Week) %>%           mutate(CumulativeAveragePassingYards=cummean(PassingYards)
+QBCrossSectionalCumulativePassYards = QBCrossSectional %>% group_by(PlayerID)%>% filter(n() >= 8) %>% arrange(Week) %>%  
+   mutate(CumulativeAveragePassingYards=cummean(PassingYards)
         , CumulativeAveragePassingTouchdowns=cummean(PassingTouchdowns)
+        , CumulativeAveragePassingInterceptions=cummean(PassingInterceptions)
         , CumulativeAveragePassingRating=cummean(PassingRating)
         , CumulativeAverageCompletions = cummean(PassingCompletions) # not sure that completions matter much - most leagues don't reward them
         , CumulativeAverageCompletionPercentage = cummean(PassingCompletionPercentage)
@@ -129,18 +116,74 @@ QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalDefensiveO
         , CumulativeMinPassingRating = cummin(PassingRating)
         , CumulativeMinCompletions = cummin(PassingCompletions)
         , CumulativeMinPassYardsPerAttempt = cummin(PassingYardsPerAttempt)
-        #, LastWeekQuarterBackRating = lag(PassingRating) by leading target variable to t+1, the current values are implicitly lagged
-        #, LastWeekPassingYards = lag(PassingYards)
-        #, LastWeekPassingTouchdowns = lag(PassingTouchdowns)
         , NextWeekFantasyPoints = lead(FantasyPoints) #Target Variable
-        , NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
+        , NextOpponent = lead(Opponent)
+        #, NextWeekDefensiveMatchup = lag(WeeklyRank) #Has to be last week's team ranking - not this week
       )
 
-QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
-final_ds <- QBCrossSectionalDefensiveOverlayCumulativePassYards
+
+QBCrossSectionalDefensiveOverlayCumulativePassYards = QBCrossSectionalCumulativePassYards %>% left_join(team_defensive_rankings, by = c('Week'='Week', 'NextOpponent'='Team')) 
+
+#QBCrossSectionalDefensiveOverlayCumulativePassYards %>% filter(PlayerID == 6739) %>% write.csv('alex_smith.csv') #Alex Smith did indeed pass for 4042 yards on the season:)
+attach(QBCrossSectionalDefensiveOverlayCumulativePassYards)
+
+summary(QBCrossSectionalDefensiveOverlayCumulativePassYards)
 ```
 
+     ## 3.7 : Create indepenent structure for EDA from QBCrossSectional Data
 
+```{r}
+
+eda_base <- QBCrossSectional %>% group_by(Week) %>% 
+                        select(Week,
+                               FantasyPoints,
+                               PassingCompletions,
+                               PassingAttempts,
+                               PassingCompletionPercentage,
+                               PassingYards, 
+                               PassingYardsPerAttempt,
+                               PassingTouchdowns,
+                               PassingInterceptions,
+                               PassingRating,
+                               RushingAttempts,
+                               RushingYards,
+                               RushingYardsPerAttempt,
+                               RushingTouchdowns,
+                               FumblesLost
+                               )
+
+eda_base$Week <- as.factor(eda_base$Week)
+
+```
+
+     ## 3.8 : Create indepenent structure for derived features for EDA
+              from QBCrossSectionalDefensiveOverlayCumulativePassYards Data
+
+```{r}
+
+eda_derived <- QBCrossSectionalDefensiveOverlayCumulativePassYards %>% group_by(Week)%>% 
+               select(Week,
+                      FantasyPoints,                        
+                      CumulativeAveragePassingYards,        
+                      CumulativeAveragePassingTouchdowns,   
+                      CumulativeAveragePassingInterceptions,
+                      CumulativeAveragePassingRating,       
+                      CumulativeAverageCompletions,         
+                      CumulativeAverageCompletionPercentage,
+                      CumulativeMaxPassingTouchdowns,       
+                      CumulativeMaxPassingYards,            
+                      CumulativeMaxPassingAttempts,        
+                      CumulativeMaxPassingRating,           
+                      CumulativeMaxCompletions,             
+                      CumulativeMaxPassYardsPerAttempt,     
+                      CumulativeMinPassingTouchdowns,       
+                      CumulativeMinPassingYards,           
+                      CumulativeMinPassingAttempts,        
+                      CumulativeMinPassingRating,          
+                      CumulativeMinCompletions,            
+                      CumulativeMinPassYardsPerAttempt) 
+eda_derived$Week <- as.factor(eda_derived$Week)
+```
 
 # 4 : Structures QBCrossSectional (Quarterbacks)
 
@@ -151,7 +194,7 @@ summary(QBCrossSectional)
 # 5 : struture with Derived features
 
 ```{r}
-summary(final_ds)
+summary(eda_derived)
 ```
 
 
@@ -168,7 +211,7 @@ vis_dat(QBCrossSectional)
     ## 7.1 : Base Feature Set
         
 ```{r}
-corr <- round(cor(QBCrossSectional[-c(1:6,21)]), 1)
+corr <- round(cor(eda_base[-1]), 1)
 
 ggcorrplot(corr, hc.order = TRUE, 
            type = "full", 
@@ -176,7 +219,7 @@ ggcorrplot(corr, hc.order = TRUE,
            lab_size = 1.5, 
            method="square", 
            colors = c("tomato2", "white", "springgreen3"), 
-           title  ="Correlogram of Quarterbacks", 
+           title  ="Correlogram of Base QB features", 
            tl.cex = 7,pch=2,pch.col =3,show.diag = T,
            ggtheme=theme_classic)
 ```
@@ -184,9 +227,7 @@ ggcorrplot(corr, hc.order = TRUE,
     ## 7.2 : Derived Feature Set
 
 ```{r}
-final_cor_ds <- final_ds %>% select(PlayerID,FantasyPoints,names(final_ds[37:51]))
-
-corr <- round(cor(final_cor_ds[-1]), 1)
+corr <- round(cor(eda_derived[-1]), 1)
 
 ggcorrplot(corr, hc.order = TRUE, 
            type = "full", 
@@ -194,7 +235,7 @@ ggcorrplot(corr, hc.order = TRUE,
            lab_size = 1.5, 
            method="square", 
            colors = c("tomato2", "white", "springgreen3"), 
-           title  = "Correlogram of Cumulative Averages", 
+           title  = "Correlogram of Derived QB features", 
            tl.cex = 7,pch=2,pch.col =3,show.diag = T,
            ggtheme=theme_classic)
 ```
@@ -206,7 +247,7 @@ ggcorrplot(corr, hc.order = TRUE,
 ```{r}
 par(mfrow=c(1, 2))  # divide graph area in 2 columns
 target <- QBCrossSectional$FantasyPoints
-plot(density(target), main="CrossSectional Dataset: FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
+plot(density(target), main="FantasyPoints", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(target), 2)))
 polygon(density(target), col="red")
 
 ```
@@ -217,7 +258,7 @@ polygon(density(target), col="red")
 
 ```{r}
 
-QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
+eda_base %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
                      geom_boxplot(show.legend = FALSE)+
                      xlab("Week")+ylab("FantasyPoints")+
                      labs(title="Fantasyfootball", 
@@ -232,14 +273,14 @@ QBCrossSectional %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
                            legend.direction ="vertical",
                            legend.title = element_text(size = rel(0.5)))   
 
-for (i in 7:19) {
+for (i in 2:15) {
 
-ggplotp <- QBCrossSectional %>% 
-           ggplot(aes_string(y=names(QBCrossSectional[i]),x="Week",fill="Week",group="Week"))+
+ggplotp <- eda_base %>% 
+           ggplot(aes_string(y=names(eda_base[i]),x="Week",fill="Week",group="Week"))+
            geom_boxplot(show.legend = FALSE)+
-           xlab("Week")+ylab(names(QBCrossSectional[i]))+
+           xlab("Week")+ylab(names(eda_base[i]))+
            labs(title="Fantasyfootball", 
-           subtitle=names(QBCrossSectional[i]), 
+           subtitle=names(eda_base[i]), 
            aption="Source: Fantasyfootball")+
            theme_wsj()+
            theme(plot.title    = element_text(size = rel(0.5)),
@@ -258,29 +299,45 @@ ggplotp <- QBCrossSectional %>%
 
 ```
 
-    ## 8.2.3 Derived Feature set
+    ## 8.2.3 Boxplots Derived Feature set
 
 ```{r}
 
-for(p in 37:51){
-  for (player in seq(1,length(unique(final_ds$PlayerID)),by=20)){
-       a_size <- player + 19
-       players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
-       
-       b_plot  <-  players_ds %>% 
-                   ggplot(aes_string(x="Week",y=names(players_ds[p]),fill="Week",group="Week"))+
-                   ggtitle(names(players_ds[p]))+
-                   geom_boxplot(show.legend = FALSE)+
-                   xlab("Week")+
-                   ylab(names(players_ds[p]))+  
-                   labs(title="Fantasyfootball", 
-                        subtitle=names(players_ds[p]), 
-                        aption="Source: Fantasyfootball")+
-                  theme_economist(base_size=8)+
-                  theme(axis.text.y = element_text(size=5))+
-                  theme(axis.text.x = element_text(angle=65, vjust=0.6))
-      print(b_plot)
-   }
+eda_derived %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
+                      geom_boxplot(show.legend = FALSE)+
+                      xlab("Week")+ylab("FantasyPoints")+
+                      labs(title="Fantasyfootball", 
+                      subtitle="Weekly fantasypoints", 
+                      aption="Source: Fantasyfootball")+
+                      theme_wsj()+
+                      theme(plot.title    = element_text(size = rel(0.5)),
+                            plot.subtitle = element_text(size = rel(0.5)),
+                            axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                            axis.title    = element_text(size = rel(0.5)),
+                            legend.position  = "right",
+                            legend.direction ="vertical",
+                            legend.title = element_text(size = rel(0.5)))   
+
+for (i in 2:20) {
+
+ggplotp <- eda_derived %>% 
+           ggplot(aes_string(y=names(eda_derived[i]),x="Week",fill="Week",group="Week"))+
+           geom_boxplot(show.legend = FALSE)+
+           xlab("Week")+ylab(names(eda_derived[i]))+
+           labs(title="Fantasyfootball", 
+           subtitle=names(eda_derived[i]), 
+           aption="Source: Fantasyfootball")+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+  
+
+  print(ggplotp)
 }
 
 
@@ -289,28 +346,43 @@ for(p in 37:51){
     ## 8.3 Violin plots Derived Feature set
 
 ```{r}
-for(p in 37:51){
-  #print(paste("violin plots for ",names(players_ds[p])))
-   for (player in seq(1,length(unique(final_ds$PlayerID)),by=20)){
-       a_size <- player + 19
-       players_ds <- final_ds %>% filter(PlayerID %in% unique(final_ds$PlayerID)[player:a_size])
-       
-       v_plot  <-  players_ds %>% 
-                   ggplot(aes_string(x="Week",y=names(players_ds[p]),fill="Week",group="Week"))+
-                   ggtitle(names(players_ds[p]))+
-                   geom_violin(show.legend = FALSE)+
-                   xlab("Week")+
-                   ylab(names(players_ds[p]))+  
-                   labs(title="Fantasyfootball", 
-                        subtitle=names(players_ds[p]), 
-                        aption="Source: Fantasyfootball")+
-                  theme_economist(base_size=8)+
-                  theme(axis.text.y = element_text(size=5))+
-                  theme(axis.text.x = element_text(angle=65, vjust=0.6))
-      print(v_plot)
-   }
-}
 
+eda_derived %>% ggplot(aes(y=FantasyPoints,x=Week,fill=Week,group=Week))+
+                      geom_violin(show.legend = FALSE)+
+                      xlab("Week")+ylab("FantasyPoints")+
+                      labs(title="Fantasyfootball", 
+                      subtitle="Weekly fantasypoints", 
+                      aption="Source: Fantasyfootball")+
+                      theme_wsj()+
+                      theme(plot.title    = element_text(size = rel(0.5)),
+                            plot.subtitle = element_text(size = rel(0.5)),
+                            axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                            axis.title    = element_text(size = rel(0.5)),
+                            legend.position  = "right",
+                            legend.direction ="vertical",
+                            legend.title = element_text(size = rel(0.5)))   
+
+for (i in 2:20) {
+
+ggplotp <- eda_derived %>% 
+           ggplot(aes_string(y=names(eda_derived[i]),x="Week",fill="Week",group="Week"))+
+           geom_violin(show.legend = FALSE)+
+           xlab("Week")+ylab(names(eda_derived[i]))+
+           labs(title="Fantasyfootball", 
+           subtitle=names(eda_derived[i]), 
+           aption="Source: Fantasyfootball")+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+  
+
+  print(ggplotp)
+}
 ```
 
     ### Check for skewed predictors
@@ -323,10 +395,16 @@ for(p in 37:51){
 features_to_keep = c('PassingYards', 'PassingAttempts', 'PassingTouchdowns', 'PassingCompletions', 'PassingYardsPerAttempt')
 
 for(f in features_to_keep){
-  hist = QBCrossSectional %>% ggplot(aes_string(x=f,fill="Week"))+
-                              geom_histogram(bins=30,show.legend = FALSE)+
-                              theme_economist()+
-                              theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  hist = eda_base %>% ggplot(aes_string(x=f,fill="Week"))+
+                      geom_histogram(bins=30,show.legend = FALSE)+
+                      theme_wsj()+
+                      theme(plot.title    = element_text(size = rel(0.5)),
+                            plot.subtitle = element_text(size = rel(0.5)),
+                            axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                            axis.title    = element_text(size = rel(0.5)),
+                            legend.position  = "right",
+                            legend.direction ="vertical",
+                            legend.title = element_text(size = rel(0.5)))   
   print(hist)
 }
 
@@ -335,13 +413,19 @@ for(f in features_to_keep){
     ### 8.4.2 : Dervived feature Set
 
 ```{r}
-features_to_keep = names(final_ds[37:51])
+features_to_keep = names(eda_derived[-1])
 
 for(f in features_to_keep){
-  hist = final_ds %>% ggplot(aes_string(x=f,fill="Week"))+
+  hist = eda_derived %>% ggplot(aes_string(x=f,fill="Week"))+
                       geom_histogram(bins=30,show.legend = FALSE)+
-                      theme_classic()+
-                      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+                      theme_wsj()+    
+                      theme(plot.title    = element_text(size = rel(0.5)),
+                            plot.subtitle = element_text(size = rel(0.5)),
+                            axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                            axis.title    = element_text(size = rel(0.5)),
+                            legend.position  = "right",
+                            legend.direction ="vertical",
+                            legend.title = element_text(size = rel(0.5)))   
   print(hist)
 }
 
@@ -352,17 +436,17 @@ for(f in features_to_keep){
 
 ```{r}
 
-for(p in 37:51){
-    bar_plot  <- final_ds %>% 
+for(p in 2:20){
+    bar_plot  <- eda_derived %>% 
                  ggplot(aes_string(x="Week",
-                                   y=names(final_ds[p]),
+                                   y=names(eda_derived[p]),
                                    fill="Week",group="Week"))+
-                 ggtitle(names(final_ds[p]))+
+                 ggtitle(names(eda_derived[p]))+
                  geom_bar(stat="identity", width=.5, show.legend = FALSE)+
                  xlab("Week")+
-                 ylab(names(final_ds[p]))+  
+                 ylab(names(eda_derived[p]))+  
                  labs(title="Fantasyfootball", 
-                      subtitle=names(final_ds[p]), 
+                      subtitle=names(eda_derived[p]), 
                       aption="Source: Fantasyfootball")+
                   theme_wsj()+
                   theme(plot.title    = element_text(size = rel(0.5)),
@@ -374,8 +458,6 @@ for(p in 37:51){
                         legend.title = element_text(size = rel(0.5)))   
            print(bar_plot)
 }
-
-bar_ds <- final_ds %>%  group_by(Week)
 
 ```
 
@@ -389,12 +471,12 @@ bar_ds <- final_ds %>%  group_by(Week)
     ## 9.1 : Scatterplots for base features
 
 ```{r}
-for (i in 7:19) {
-  base_scatter <- QBCrossSectional %>% 
-                  ggplot(aes_string(y="FantasyPoints",x=names(QBCrossSectional[i]),color="as.numeric(Week)")) + 
+for (i in 3:15) {
+  base_scatter <- eda_base %>% 
+                  ggplot(aes_string(y="FantasyPoints",x=names(eda_base[i]),color="as.numeric(Week)")) + 
                   geom_point()+geom_smooth(method="lm",se=F)+
                   labs(title="Fantasyfootball", 
-                       subtitle=names(final_ds[i]), 
+                       subtitle=names(eda_base[i]), 
                        aption="Source: Fantasyfootball")+
                   labs(color="Week")+
                   theme_wsj()+
@@ -414,15 +496,15 @@ for (i in 7:19) {
 
 ```{r}
 
-for (i in 37:51) {
-  derived_scatter <- final_ds %>% 
-                     ggplot(aes_string(y="FantasyPoints",x=names(final_ds[i]),color="as.numeric(Week)"))+ 
+for (i in 3:20) {
+  derived_scatter <- eda_derived %>% 
+                     ggplot(aes_string(y="FantasyPoints",x=names(eda_derived[i]),color="as.numeric(Week)"))+ 
                      geom_point()+
                      geom_smooth(method="lm",se=F)+
-                     xlab(names(final_ds[i]))+
+                     xlab(names(eda_derived[i]))+
                      ylab("FantasyPoints")+  
                      labs(title="Fantasyfootball", 
-                          subtitle=names(final_ds[i]), 
+                          subtitle=names(eda_derived[i]), 
                           aption="Source: Fantasyfootball")+
                      labs(color="Week")+
                      theme_wsj()+
@@ -440,12 +522,45 @@ for (i in 37:51) {
 ```
 
 # 10 : Line plots
+  ## 10.1 Base Features
 
 ```{r}
 
-line_ds <- final_ds %>% group_by(Week) %>% arrange(Week)
+line_ds <- eda_base %>% group_by(Week) %>% arrange(Week)
 
-for(p in 37:51){
+for(p in 2:15){
+
+   line_plot  <-  line_ds %>% 
+                  ggplot(aes_string(x="as.numeric(Week)",y=names(line_ds[p])))+
+                  ggtitle(names(line_ds[p]))+
+                  geom_line(show.legend = FALSE)+
+                  xlab("Week")+
+                  ylab(names(line_ds[p]))+  
+                  labs(title="Fantasyfootball", 
+                       subtitle=names(line_ds[p]), 
+                       aption="Source: Fantasyfootball")+
+                  theme_wsj()+
+                  theme(plot.title    = element_text(size = rel(0.5)),
+                        plot.subtitle = element_text(size = rel(0.5)),
+                        axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                        axis.title    = element_text(size = rel(0.5)),
+                        legend.position  = "right",
+                        legend.direction ="vertical",
+                        legend.title = element_text(size = rel(0.5)))   
+       
+   print(line_plot)
+}
+
+```
+  
+  
+  ## 10.2 Derived Features
+  
+```{r}
+
+line_ds <- eda_derived %>% group_by(Week) %>% arrange(Week)
+
+for(p in 2:20){
 
    line_plot  <-  line_ds %>% 
                   ggplot(aes_string(x="as.numeric(Week)",y=names(line_ds[p])))+
