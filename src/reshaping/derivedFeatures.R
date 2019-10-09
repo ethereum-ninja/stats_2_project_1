@@ -18,7 +18,6 @@ addDerivedFeatures = function(tibble, min_weeks_played=8){
                                                                                                     , CumulativeMaxPassingRating = cummax(PassingRating)
                                                                                                     , CumulativeMaxCompletions = cummax(PassingCompletions)
                                                                                                     , CumulativeMaxPassYardsPerAttempt = cummax(PassingYardsPerAttempt)
-                                                                                                    , CumulativeMinPassingTouchdowns = cummin(PassingTouchdowns)
                                                                                                     , CumulativeMinPassingYards = cummin(PassingYards)   #Let's get mins to capture downside risk
                                                                                                     , CumulativeMinPassingAttempts = cummin(PassingAttempts)
                                                                                                     , CumulativeMinPassingRating = cummin(PassingRating)

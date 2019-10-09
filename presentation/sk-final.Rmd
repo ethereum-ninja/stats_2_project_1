@@ -27,6 +27,7 @@ QBCrossSectional_ALL_OBSERVATIONS = map_df(QBCrossSectional_ALL_OBSERVATIONS, as
 QBCrossSectional_ALL_OBSERVATIONS_2018 = getFootballPlayersJSON("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=5000&group=&filter=&filters.position=2&filters.team=&filters.teamkey=&filters.season=2018&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 QBCrossSectional_ALL_OBSERVATIONS_2018 = map(QBCrossSectional_ALL_OBSERVATIONS_2018, removeColumnsWithWrongLength)
 QBCrossSectional_ALL_OBSERVATIONS_2018 = map_df(QBCrossSectional_ALL_OBSERVATIONS_2018, as_tibble) 
+
 ```
 
 
@@ -64,17 +65,11 @@ return(c(sst, sse, rsq))
 }
 ```
 
-```{r MODEL_HYPER_PARAMS}
-start_week = 2
-end_week = 17
-
-min_score = 15
-max_score = 25#max(all_test_data$NextWeekFantasyPoints, na.rm = TRUE)
-
-sack_weight = 4
-qb_hit_weight = 3
+```{r DEFENSE_HYPER_PARAMS}
+sack_weight = 3
+qb_hit_weight = 1
 interception_weight = 7
-pass_defended_weight = 5
+pass_defended_weight = 4 
 ```
 
 ```{r LOAD_DEFENSIVE_STATS}
@@ -177,6 +172,16 @@ write.csv(DefensiveStats %>% union_all(DefensiveStats_2018), 'defense.csv')
 ```
 
 
+```{r MODEL_FILTERING_PARAMETERS}
+filterDataByWeekAndScoreRange = function(data){
+start_week = 3 # starting in week3 seems to smooth the averages (or we could use custom lags) 
+end_week = 17
+min_score = 0
+max_score = max(all_test_data$NextWeekFantasyPoints, na.rm = TRUE)
+
+return(data %>% filter(Week >= start_week & Week < end_week) %>% filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score))
+}
+```
 
 
 ```{r RUN_BASE_LINEAR_MODEL}
@@ -199,12 +204,10 @@ model_cols = simple_model
 
 model.data = all_train_data %>% 
   ungroup() %>% 
-  filter(Week > start_week & Week < end_week) %>% 
-  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  filterDataByWeekAndScoreRange() %>% 
   select(model_cols) %>% 
   drop_na()
 
-#summary(model.data)
 model.basic = lm(NextWeekFantasyPoints~., data=model.data %>% select(-id_cols))
 
 plot(model.basic)
@@ -236,9 +239,9 @@ write.csv(plot_data, 'model_data.csv')
 ```
 
 ```{r RE_FIT_NO_OUTLIERS}
-outliers = model.data[c(151, 23, 228), ]
+outliers = model.data[c(228, 23, 151), ]
 
-model.data.no_outliers = model.data[-c(151, 23, 228), ]
+model.data.no_outliers = model.data[-c(228, 23, 151), ]
 
 summary(model.data.no_outliers)
 model.basic.no_outliers = lm(NextWeekFantasyPoints~., data=model.data.no_outliers %>% select(-id_cols))
@@ -270,15 +273,16 @@ write.csv(plot_data_no_ol, 'model_data_no_outliers.csv')
 
 ```
 
-### Outliers do not have a significant impact
+### Outliers do not have a significant impact other than to include zero in the range of estimates for the AvgPassDefense Parameter - not great.... but we can live with it
 
 ```{r LASSO_RIDGE}
 library(glmnet)
 
+#feature selection should include all features?
+
 all.model.data = all_train_data %>% 
   ungroup() %>% 
-  filter(Week > start_week & Week < end_week) %>% 
-  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  filterDataByWeekAndScoreRange() %>% 
   select(all_model_cols) %>% 
   drop_na()
 
@@ -325,22 +329,26 @@ coef(model.basic)
 final_linear <- cbind(y_var[test], pred_linear)
 
 plot(cv_output_ridge)
+title('Ridge Cross Validation')
 plot(cv_output_lasso)
+title('Lasso Cross Validation')
 plot(cv_output_ridge$glmnet.fit)
+title('Ridge Predictions')
 plot(cv_output_lasso$glmnet.fit)
+title('Lasso Predictions')
 
-cbind(calc_model_summary(y_var[test], ridge_pred), 
-      calc_model_summary(y_var[test], pred_linear),
-      calc_model_summary(y_var[test], pred_lasso))
-
+best_lasso$dev.ratio
+best_ridge$dev.ratio
+summary(model.basic)$r.squared
+summary(model.basic)$adj.r.squared
 
 ```
+
 ```{r PREDICT_2018}
 
 test.data = all_test_data %>% 
   ungroup() %>% 
-  filter(Week > start_week & Week < end_week) %>% 
-  filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score) %>%
+  filterDataByWeekAndScoreRange() %>%
   select(all_model_cols) %>% 
   drop_na()
 
@@ -350,7 +358,7 @@ out_of_sample_Y =  test.data$NextWeekFantasyPoints
 
 ridge_pred_test = predict(best_ridge, s=best_lam_ridge, newx=out_of_sample_X)
 lasso_pred_test = predict(best_lasso, s=best_lam_ridge, newx=out_of_sample_X)
-#linear_pred_test = predict.glm(model.basic, newdata=test.data[,-1])
+linear_pred_test = predict.glm(model.basic, newdata=test.data[,-1])
 
 
 ridge_predictions = data.frame(out_of_sample_Y, ridge_pred_test)
@@ -359,16 +367,17 @@ ggplot(ridge_predictions, aes(x=out_of_sample_Y, y=ridge_pred_test)) + geom_poin
 lasso_predictions = data.frame(out_of_sample_Y, lasso_pred_test)
 ggplot(lasso_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm) + ggtitle('Lasso Regression Predictions 2018 Season')
 
-#linear_predictions = data.frame(out_of_sample_Y, linear_pred_test)
-#ggplot(linear_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season')
-
-
-
-
+linear_predictions = data.frame(out_of_sample_Y, linear_pred_test)
+ggplot(linear_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season')
 
 
 ```
+```{r SUMMARY_STATS_TEST_TRAIN}
 
+summary(model.data)
+summary(test.data)
+
+```
 
 
 ### Offensive EDA
@@ -379,9 +388,10 @@ ggplot(lasso_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_poin
     # Raw Target Variable  
 
 
-```{r FEATURE_DISTRIBUTION_TRAIN}
+```{r FEATURE_DISTRIBUTION_MODEL}
 
 model.data %>% 
+  filterDataByWeekAndScoreRange() %>% 
   select(-id_cols) %>% 
   gather(variable, value) %>%
   ggplot(aes(value)) + 
@@ -390,6 +400,7 @@ model.data %>%
   facet_grid(.~variable, scales="free_x") 
 
 model.data %>% 
+  filterDataByWeekAndScoreRange() %>% 
   select(-id_cols) %>% 
   gather(variable, value) %>%
   ggplot(aes(log(value))) + 
@@ -398,12 +409,50 @@ model.data %>%
   facet_grid(.~variable, scales="free_x") 
 
 ```
+```{r}
+all_test_data %>% 
+  filterDataByWeekAndScoreRange() %>% 
+  ungroup() %>% 
+  select(all_model_cols) %>%
+  select(-id_cols) %>% 
+  gather() %>%
+  ggplot(aes(value)) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Train Data Variable Distribution') +
+  facet_wrap(~key, scales = 'free', nrow = length(all_model_cols), ncol=2) 
+```
+
+```{r FEATURE_DISTRIBUTION_FULL_TEST_SET}
+
+all_train_data %>% 
+  filterDataByWeekAndScoreRange() %>% 
+  select(all_model_cols) %>%
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(value)) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Train Data Variable Distribution') +
+  facet_grid(.~variable, scales="free_x") 
+
+all_train_data %>% 
+  filterDataByWeekAndScoreRange() %>% 
+  select(all_model_cols) %>%
+  select(-id_cols) %>% 
+  gather(variable, value) %>%
+  ggplot(aes(log(value))) + 
+  geom_histogram(bins=10) + 
+  ggtitle('Train Data Variable Log Distribution') +
+  facet_grid(.~variable, scales="free_x", rows=length(all_model_cols)/2, cols=2) 
+
+```
+
 
 - log data is slightly crappy
 
 
 ```{r FEATURE_DISTRIBUTION_TEST}
 test.data %>% 
+  filterDataByWeekAndScoreRange() %>% 
   select(-id_cols) %>% 
   gather(variable, value) %>%
   ggplot(aes(value)) + 
@@ -412,20 +461,13 @@ test.data %>%
   facet_wrap(.~variable,scales = 'free_x') 
 
 
-test.data %>% 
-  select(-id_cols) %>% 
-  gather(variable, value) %>%
-  ggplot(aes(log(value))) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Test Data Variable Log Distribution') +
-  facet_wrap(.~variable,  ncol=1) 
-
 ```
+
 ```{r LINEAR_FEATURE_SEARCH}
 
 linear.search.data = all_train_data %>% 
   ungroup() %>% 
-  filter(Week > 2 & Week < 17 & n() >= 8) %>% 
+  filterDataByWeekAndScoreRange() %>% 
   select(all_model_cols) %>%
   select(-id_cols) %>%
   drop_na()
@@ -480,4 +522,47 @@ ggplot(data = corr_data_all, aes(Var2, Var1, fill = value))+
  coord_fixed() +
   geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
   ggtitle('Pearson Correlation for Defensive Features')
+```
+
+### Compare our defensive pass ratings to NFL stats for 2017 and 2018
+
+```{r COMPARE_CUSTOM_DF_METRIC}
+
+dranks = DefensiveStats %>% select(c('Team', 'AvgPassDefense', 'AvgPointsAllowed', 'AvgQBPointsAllowed')) %>% group_by(Team) %>% summarise_all(~mean(., na.rm=TRUE)) %>%
+    arrange(desc(AvgPassDefense)) 
+
+dranks_2018 = DefensiveStats_2018 %>% select(c('Team', 'AvgPassDefense', 'AvgPointsAllowed', 'AvgQBPointsAllowed')) %>% group_by(Team) %>% summarise_all(~mean(., na.rm=TRUE)) %>%
+    arrange(desc(AvgPassDefense))  
+
+ggplot(data=dranks, aes_string(x='AvgPassDefense', y='AvgPointsAllowed', label='Team')) + 
+   geom_point() + 
+   geom_label() +
+   geom_smooth(method=lm ) +
+   ggtitle('Passing Defense vs Points Allowed 2017')
+
+
+
+ggplot(data=dranks_2018, aes_string(x='AvgPassDefense', y='AvgPointsAllowed', label='Team')) + 
+   geom_point() + 
+   geom_label() +
+   geom_smooth(method=lm ) +
+   ggtitle('Passing Defense vs Points Allowed 2018')
+
+
+ggplot(data=dranks, aes_string(x='AvgPassDefense', y='AvgQBPointsAllowed', label='Team')) + 
+   geom_point() + 
+   geom_label() + 
+   geom_smooth(method=lm) +
+   ggtitle('Passing Defense vs Points Allowed to QB 2017')
+
+
+
+ggplot(data=dranks_2018, aes_string(x='AvgPassDefense', y='AvgQBPointsAllowed', label='Team')) + 
+   geom_point() + 
+   geom_label() + 
+   geom_smooth(method=lm ) +
+   ggtitle('Passing Defense vs Points Allowed to QB 2018')
+
+
+
 ```
