@@ -11,6 +11,8 @@ library(tidyverse)
 library(rjson)
 library(purrr)
 library(sqldf)
+library(ggthemes)
+library(glue)
 #load("../analysis/data/.RData")
 
 ```
@@ -68,7 +70,7 @@ return(c(sst, sse, rsq))
 ```{r DEFENSE_HYPER_PARAMS}
 sack_weight = 3
 qb_hit_weight = 1
-interception_weight = 7
+interception_weight = 10
 pass_defended_weight = 4 
 ```
 
@@ -187,7 +189,7 @@ return(data %>% filter(Week >= start_week & Week < end_week) %>% filter(NextWeek
 ```{r RUN_BASE_LINEAR_MODEL}
 
 #feature ofs interest
-all_model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns',                  'CumulativeAveragePassingRating', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions', 'CumulativeMinPassingTouchdowns',  'AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'PlayerID', 'ShortName', 'Week' ,'CumulativeMaxFantasyPoints', 'CumulativeMinFantasyPoints', 'AvgPointsAllowed')
+all_model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns',                  'CumulativeAveragePassingRating', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions',   'AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'PlayerID', 'ShortName', 'Week' ,'CumulativeMaxFantasyPoints', 'CumulativeMinFantasyPoints', 'AvgPointsAllowed')
 
 
 
@@ -207,6 +209,7 @@ model.data = all_train_data %>%
   filterDataByWeekAndScoreRange() %>% 
   select(model_cols) %>% 
   drop_na()
+
 
 model.basic = lm(NextWeekFantasyPoints~., data=model.data %>% select(-id_cols))
 
@@ -280,53 +283,57 @@ library(glmnet)
 
 #feature selection should include all features?
 
-all.model.data = all_train_data %>% 
+all.model.data.train = all_train_data %>% 
   ungroup() %>% 
   filterDataByWeekAndScoreRange() %>% 
   select(all_model_cols) %>% 
   drop_na()
 
-x_var <- model.matrix(NextWeekFantasyPoints~. , all.model.data %>% select(-id_cols))[,-1]
-y_var <- all.model.data$NextWeekFantasyPoints
+all.model.data.test = all_test_data %>% 
+  ungroup() %>% 
+  filterDataByWeekAndScoreRange() %>% 
+  select(all_model_cols) %>% 
+  drop_na()
+
+
+train_X = model.matrix(NextWeekFantasyPoints~. , all.model.data.train %>% select(-id_cols))[,-1]
+train_Y = all.model.data.train$NextWeekFantasyPoints
+
+test_X = model.matrix(NextWeekFantasyPoints~., all.model.data.test %>% select(-id_cols))[,-1]
+test_Y = all.model.data.test$NextWeekFantasyPoints
+
 lambda_seq <- 10^seq(2, -2, by = -.1)
 
 # Splitting the data into test and train
 set.seed(86)
 
-train = sample(1:nrow(x_var), nrow(x_var)/2)
-test = (-train)
-y_test = y_var[test]
+#train = sample(1:nrow(x_var), nrow(x_var)/2)
+#test = (-train)
+#y_test = y_var[test]
 
-cv_output_lasso <- cv.glmnet(x_var, y_var, 
-            alpha = 1, nfolds=10)
+cv_output_lasso <- cv.glmnet(train_X, train_Y, 
+            alpha = 1, nfolds=40, lambda = lambda_seq)
 
 # identifying best lamda
-best_lam <- cv_output_lasso$lambda.min
+best_lam_lasso <- cv_output_lasso$lambda.min
 
-best_lasso <- glmnet(x_var[train,], y_var[train], alpha = 1, lambda = best_lam)
-pred_lasso <- predict(best_lasso, s = best_lam, newx = x_var[test,])
-final_lasso <- cbind(y_var[test], pred_lasso)
+best_lasso <- glmnet(train_X, train_Y, alpha = 1, lambda = best_lam_lasso)
+pred_lasso <- predict(best_lasso, s = best_lam_lasso, newx = test_X)
+final_lasso <- cbind(test_Y, pred_lasso)
 
-ridge_lambda <- 10^seq(10, -2, length = 100)
-cv_output_ridge <- cv.glmnet(x_var[train,], y_var[train], 
-            alpha = 0, nfolds=10)
+#ridge_lambda <- 10^seq(10, -2, length = 100)
+cv_output_ridge <- cv.glmnet(train_X, train_Y, 
+            alpha = 0, nfolds=40, lambda = lambda_seq)
 
 best_lam_ridge <- cv_output_ridge$lambda.min
-best_ridge = glmnet(x_var[train,], y_var[train], alpha = 0, lambda = best_lam_ridge)
+best_ridge = glmnet(train_X, train_Y, alpha = 0, lambda = best_lam_ridge)
 
-ridge_pred <- predict(best_ridge, s = best_lam_ridge, newx = x_var[test,])
-final_ridge <- cbind(y_var[test], ridge_pred)
+ridge_pred <- predict(best_ridge, s = best_lam_ridge, newx = test_X)
+final_ridge <- cbind(test_Y, ridge_pred)
 
-pred_linear <- predict.glm(model.basic, newdata = data.frame(x_var[test,]))
+pred_linear <- predict.glm(model.basic, newdata = all.model.data.test %>% select(-id_cols))
+final_linear <- cbind(test_Y, pred_linear)
 
-
-coef(best_ridge)
-coef(best_lasso)
-coef(model.basic)
-
-
-
-final_linear <- cbind(y_var[test], pred_linear)
 
 plot(cv_output_ridge)
 title('Ridge Cross Validation')
@@ -335,12 +342,27 @@ title('Lasso Cross Validation')
 plot(cv_output_ridge$glmnet.fit)
 title('Ridge Predictions')
 plot(cv_output_lasso$glmnet.fit)
-title('Lasso Predictions')
+title('Lasso Coeff Evolution')
+
+```
+
+```{r MODEL_TRAIN_ERROR_RATES}
 
 best_lasso$dev.ratio
 best_ridge$dev.ratio
 summary(model.basic)$r.squared
 summary(model.basic)$adj.r.squared
+summary(model.basic.no_outliers)$r.squared
+summary(model.basic.no_outliers)$adj.r.squared
+
+
+```
+
+```{r MODEL_COEFFS}
+coef(best_ridge)
+coef(best_lasso)
+coef(model.basic)
+coef(model.basic.no_outliers)
 
 ```
 
@@ -359,6 +381,7 @@ out_of_sample_Y =  test.data$NextWeekFantasyPoints
 ridge_pred_test = predict(best_ridge, s=best_lam_ridge, newx=out_of_sample_X)
 lasso_pred_test = predict(best_lasso, s=best_lam_ridge, newx=out_of_sample_X)
 linear_pred_test = predict.glm(model.basic, newdata=test.data[,-1])
+linear_pred_test_no_out = predict.glm(model.basic.no_outliers, newdata=test.data[,-1])
 
 
 ridge_predictions = data.frame(out_of_sample_Y, ridge_pred_test)
@@ -368,10 +391,21 @@ lasso_predictions = data.frame(out_of_sample_Y, lasso_pred_test)
 ggplot(lasso_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm) + ggtitle('Lasso Regression Predictions 2018 Season')
 
 linear_predictions = data.frame(out_of_sample_Y, linear_pred_test)
-ggplot(linear_predictions, aes(x=out_of_sample_Y, y=lasso_pred_test)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season')
+ggplot(linear_predictions, aes(x=out_of_sample_Y, y=linear_pred_test)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season')
 
+linear_predictions_no_out = data.frame(out_of_sample_Y, linear_pred_test_no_out)
+ggplot(linear_predictions_no_out, aes(x=out_of_sample_Y, y=linear_pred_test_no_out)) + geom_point() + geom_smooth(method=lm ) + ggtitle('Linear Regression Predictions 2018 Season  (ex Outliers)')
 
 ```
+
+```{r TEST_ERROR_RATES}
+#predicted R-squared
+calc_model_summary(out_of_sample_Y, linear_predictions)[3]
+calc_model_summary(out_of_sample_Y, lasso_predictions)[3]
+calc_model_summary(out_of_sample_Y, ridge_predictions)[3]
+calc_model_summary(out_of_sample_Y, linear_predictions_no_out)[3]
+```
+
 ```{r SUMMARY_STATS_TEST_TRAIN}
 
 summary(model.data)
@@ -379,70 +413,105 @@ summary(test.data)
 
 ```
 
+### Objective 2
 
+  - Best QB at home/away?
+```{r}
+library(car)
+library(ggpubr)
+
+anova_data = QBCrossSectional %>% select(-c('NextWeekFantasyPoints', 'NextOpponent')) %>% drop_na()
+anova_data$ShortName = as.factor(anova_data$ShortName)
+anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
+anova_data$Week = as.factor(anova_data$Week)
+
+
+mod = lm(FantasyPoints ~ Week*TeamIsHome, data=anova_data, contrasts = list(Week=contr.sum, 
+                                                                                TeamIsHome=contr.sum, 
+                                                                                Week=contr.poly, 
+                                                                                TeamIsHome=contr.poly))
+
+ggboxplot(anova_data %>% drop_na(), x = "Week", y = "FantasyPoints", color = "TeamIsHome",
+          palette = c("#00AFBB", "#E7B800"))+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+
+aov.res = aov(mod)
+drop1(mod, .~., test='F')
+
+TukeyHSD(aov.res, which='Week')
+TukeyHSD(aov.res, which='TeamIsHome')
+
+```
+
+```{r}
+
+anova_data = DefensiveStats %>% drop_na()
+anova_data$Team = as.factor(anova_data$Team)
+anova_data$Week = as.factor(anova_data$Week)
+
+
+mod = lm(PassingDefense ~ Team, data=anova_data, contrasts = list(              Team=contr.sum, 
+                                                                                Team=contr.poly))
+
+ggboxplot(anova_data %>% drop_na(), x = "Team", y = "PassingDefense")+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+
+aov.res = aov(mod)
+drop1(mod, .~., test='F')
+
+TukeyHSD(aov.res, which='Team')
+
+```
+
+```{r EDA_PARAMS}
+hist_alpha= 0.5
+
+```
 ### Offensive EDA
   
   
   ## Box Plots/Histograms for QB Data Overall 
     
-    # Raw Target Variable  
 
-
-```{r FEATURE_DISTRIBUTION_MODEL}
-
-model.data %>% 
-  filterDataByWeekAndScoreRange() %>% 
-  select(-id_cols) %>% 
-  gather(variable, value) %>%
-  ggplot(aes(value)) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Train Data Variable Distribution') +
-  facet_grid(.~variable, scales="free_x") 
-
-model.data %>% 
-  filterDataByWeekAndScoreRange() %>% 
-  select(-id_cols) %>% 
-  gather(variable, value) %>%
-  ggplot(aes(log(value))) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Train Data Variable Log Distribution') +
-  facet_grid(.~variable, scales="free_x") 
-
-```
 ```{r}
-all_test_data %>% 
+all_train_data %>% 
   filterDataByWeekAndScoreRange() %>% 
   ungroup() %>% 
-  select(all_model_cols) %>%
+  select(model_cols) %>%
   select(-id_cols) %>% 
   gather() %>%
   ggplot(aes(value)) + 
-  geom_histogram(bins=10) + 
+  geom_histogram(bins=10, alpha=hist_alpha) + 
   ggtitle('Train Data Variable Distribution') +
-  facet_wrap(~key, scales = 'free', nrow = length(all_model_cols), ncol=2) 
+  facet_grid(~key, scales = 'free') 
 ```
 
 ```{r FEATURE_DISTRIBUTION_FULL_TEST_SET}
 
-all_train_data %>% 
+all_test_data %>% 
   filterDataByWeekAndScoreRange() %>% 
-  select(all_model_cols) %>%
+  ungroup() %>%
+  select(model_cols) %>%
   select(-id_cols) %>% 
   gather(variable, value) %>%
   ggplot(aes(value)) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Train Data Variable Distribution') +
+  geom_histogram(bins=10, alpha=hist_alpha) + 
+  ggtitle('Test Data Variable Distribution') +
   facet_grid(.~variable, scales="free_x") 
-
-all_train_data %>% 
-  filterDataByWeekAndScoreRange() %>% 
-  select(all_model_cols) %>%
-  select(-id_cols) %>% 
-  gather(variable, value) %>%
-  ggplot(aes(log(value))) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Train Data Variable Log Distribution') +
-  facet_grid(.~variable, scales="free_x", rows=length(all_model_cols)/2, cols=2) 
 
 ```
 
@@ -450,18 +519,67 @@ all_train_data %>%
 - log data is slightly crappy
 
 
-```{r FEATURE_DISTRIBUTION_TEST}
-test.data %>% 
+```{r FEATURE_DISTRIBUTION_TRAIN}
+eda_base = all_train_data %>% 
   filterDataByWeekAndScoreRange() %>% 
-  select(-id_cols) %>% 
-  gather(variable, value) %>%
-  ggplot(aes(value)) + 
-  geom_histogram(bins=10) + 
-  ggtitle('Test Data Variable Distribution') +
-  facet_wrap(.~variable,scales = 'free_x') 
+  ungroup() %>%
+  select(model_cols)
+  
+for (f in model_cols) {
+ggplotp <- eda_base %>% 
+           ggplot(aes_string(y=names(eda_base[, f]),x="Week",fill="Week",group="Week"))+
+           geom_boxplot(show.legend = FALSE)+
+           xlab('Week')+ylab(names(eda_base[, f]))+
+           labs(title="Training Data", 
+           subtitle=names(eda_base[, f]))+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+  
+
+  print(ggplotp)
+} 
 
 
 ```
+
+
+```{r FEATURE_DISTRIBUTION_TEST}
+eda_base = all_test_data %>% 
+  filterDataByWeekAndScoreRange() %>% 
+  ungroup() %>%
+  select(model_cols)
+  
+for (f in model_cols) {
+ggplotp <- eda_base %>% 
+           ggplot(aes_string(y=names(eda_base[, f]),x="Week",fill="Week",group="Week"))+
+           geom_boxplot(show.legend = FALSE)+
+           xlab('Week')+ylab(names(eda_base[, f]))+
+           labs(title="Test Data", 
+           subtitle=names(eda_base[, f]))+
+           theme_wsj()+
+           theme(plot.title    = element_text(size = rel(0.5)),
+                 plot.subtitle = element_text(size = rel(0.5)),
+                 axis.text.x   = element_text(angle=65, vjust=0.6,size=1),
+                 axis.title    = element_text(size = rel(0.5)),
+                 legend.position  = "right",
+                 legend.direction ="vertical",
+                 legend.title = element_text(size = rel(0.5)))   
+  
+
+  print(ggplotp)
+} 
+
+
+```
+
+
+
 
 ```{r LINEAR_FEATURE_SEARCH}
 

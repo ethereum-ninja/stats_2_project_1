@@ -16,7 +16,7 @@ library(naniar)
 
 
 
-QBCrossSectional <- getFootballData(url = URL) %>%  # FootballWebscraper.R
+QBCrossSectional <- getFootballData(url = getURL()) %>%  # FootballWebscraper.R
                       filterUnwantedVariables() %>%  # VariableFilter.R
                       withGameDates() %>%  # parsing_dates.R
                       filter(Position == "QB") %>%
@@ -24,7 +24,7 @@ QBCrossSectional <- getFootballData(url = URL) %>%  # FootballWebscraper.R
                   
 
 
-QBCrossSectional_Test <- getFootballData(url = URL_2018) %>%  # FootballWebscraper.R
+QBCrossSectional_Test <- getFootballData(url = getURL(2018)) %>%  # FootballWebscraper.R
   filterUnwantedVariables() %>%  # VariableFilter.R
   withGameDates() %>%  # parsing_dates.R
   filter(Position == "QB") %>%
