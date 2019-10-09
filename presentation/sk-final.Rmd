@@ -420,18 +420,15 @@ summary(test.data)
 library(car)
 library(ggpubr)
 
-anova_data = QBCrossSectional %>% select(-c('NextWeekFantasyPoints', 'NextOpponent')) %>% drop_na()
+anova_data = QBCrossSectional %>% select(-c('NextWeekFantasyPoints', 'NextOpponent')) %>% drop_na() %>% filter(ShortName %in% c('B. Roethlisberger','D. Prescott', 'T. Brady', 'K. Cousins', 'B. Bortles'))
 anova_data$ShortName = as.factor(anova_data$ShortName)
 anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
 anova_data$Week = as.factor(anova_data$Week)
 
 
-mod = lm(FantasyPoints ~ Week*TeamIsHome, data=anova_data, contrasts = list(Week=contr.sum, 
-                                                                                TeamIsHome=contr.sum, 
-                                                                                Week=contr.poly, 
-                                                                                TeamIsHome=contr.poly))
-
-ggboxplot(anova_data %>% drop_na(), x = "Week", y = "FantasyPoints", color = "TeamIsHome",
+mod = lm(FantasyPoints ~ TeamIsHome, data=anova_data)
+        
+ggboxplot(QBCrossSectional %>% drop_na(), x = "ShortName", y = "FantasyPoints", color = "TeamIsHome",
           palette = c("#00AFBB", "#E7B800"))+
            theme_wsj()+
            theme(plot.title    = element_text(size = rel(0.5)),
@@ -445,37 +442,10 @@ ggboxplot(anova_data %>% drop_na(), x = "Week", y = "FantasyPoints", color = "Te
 aov.res = aov(mod)
 drop1(mod, .~., test='F')
 
-TukeyHSD(aov.res, which='Week')
 TukeyHSD(aov.res, which='TeamIsHome')
 
 ```
 
-```{r}
-
-anova_data = DefensiveStats %>% drop_na()
-anova_data$Team = as.factor(anova_data$Team)
-anova_data$Week = as.factor(anova_data$Week)
-
-
-mod = lm(PassingDefense ~ Team, data=anova_data, contrasts = list(              Team=contr.sum, 
-                                                                                Team=contr.poly))
-
-ggboxplot(anova_data %>% drop_na(), x = "Team", y = "PassingDefense")+
-           theme_wsj()+
-           theme(plot.title    = element_text(size = rel(0.5)),
-                 plot.subtitle = element_text(size = rel(0.5)),
-                 axis.text.x   = element_text(angle=65, vjust=0.6),
-                 axis.title    = element_text(size = rel(0.5)),
-                 legend.position  = "right",
-                 legend.direction ="vertical",
-                 legend.title = element_text(size = rel(0.5)))   
-
-aov.res = aov(mod)
-drop1(mod, .~., test='F')
-
-TukeyHSD(aov.res, which='Team')
-
-```
 
 ```{r EDA_PARAMS}
 hist_alpha= 0.5
