@@ -437,23 +437,26 @@ summary(test.data)
 
 ### Objective 2
 
-  - Best QB at home/away?
+  - QBs with largest diffs in H/A splits
 ```{r}
 library(car)
 library(ggpubr)
 
-anova_data = QBCrossSectional %>% select(-c('NextWeekFantasyPoints', 'NextOpponent')) %>% drop_na() %>% filter(ShortName %in% c('B. Roethlisberger','D. Prescott', 'T. Brady', 'K. Cousins', 'B. Bortles'))
-anova_data$ShortName = as.factor(anova_data$ShortName)
-anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
-anova_data$Week = as.factor(anova_data$Week)
+#let's look for players wih large splits according to box plots
 
+anova_data = QBCrossSectional %>% 
+            union(QBCrossSectional_2018) %>% 
+            group_by(ShortName) %>%
+            filter(n() >= 16) %>%
+            select(c('FantasyPoints', 'ShortName', 'TeamIsHome')) %>% 
+            ungroup() %>%
+            mutate(ShortName = gsub(". ", "", ShortName)) %>%
+            drop_na()
 
-mod = lm(FantasyPoints ~ TeamIsHome, data=anova_data)
-        
-ggboxplot(QBCrossSectional %>% drop_na(), x = "ShortName", y = "FantasyPoints", color = "TeamIsHome",
-          palette = c("#00AFBB", "#E7B800"))+
-           theme_wsj()+
-           theme(plot.title    = element_text(size = rel(0.5)),
+ggboxplot(anova_data, x = "ShortName", y = "FantasyPoints", color = "TeamIsHome",
+            palette = c("#00AFBB", "#E7B800"))+
+            theme_wsj()+
+            theme(plot.title    = element_text(size = rel(0.5)),
                  plot.subtitle = element_text(size = rel(0.5)),
                  axis.text.x   = element_text(angle=65, vjust=0.6),
                  axis.title    = element_text(size = rel(0.5)),
@@ -461,11 +464,76 @@ ggboxplot(QBCrossSectional %>% drop_na(), x = "ShortName", y = "FantasyPoints", 
                  legend.direction ="vertical",
                  legend.title = element_text(size = rel(0.5)))   
 
+
+
+
+
+```
+
+```{r}
+library(limma)
+
+
+anova_data$ShortName = as.factor(anova_data$ShortName)
+anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
+
+mod = lm(FantasyPoints ~ TeamIsHome + ShortName +TeamIsHome*ShortName, data=anova_data)
+qbs = as.factor(anova_data$ShortName)
+home_away = as.factor(anova_data$TeamIsHome)
+        
+
 aov.res = aov(mod)
 drop1(mod, .~., test='F')
 
-TukeyHSD(aov.res, which='TeamIsHome')
+#TukeyHSD(aov.res)
 
+#contrasts(interaction_player_home_away)
+
+
+```
+
+```{r}
+final.result<-c()
+attach(anova_data, warn.conflicts = FALSE)
+contrast.factor=~ShortName*TeamIsHome
+mycontrast = c()
+for(q in levels(qbs)){
+  mycontrast = append(mycontrast, c(glue('{q}TRUE-{q}FALSE')))
+}
+
+contrast.factor.2 <- vector("list", length(2))
+contrast.factor.2[[1]] = levels(qbs)
+contrast.factor.2[[2]] = levels(home_away)
+
+for( j in 1:length(mycontrast)){
+contrast.factor.names<-gsub(" ", "", unlist(strsplit(as.character(contrast.factor),split = "*", fixed = T))[-1])
+
+new.factor.levels <- do.call(paste, c(do.call(expand.grid, 
+                                              contrast.factor.2), sep = ""))
+temp.cont<-mycontrast[j]
+contrast2 <- list(comparison = as.vector(do.call(makeContrasts, 
+                                                list(contrasts = temp.cont, levels = new.factor.levels))))
+
+
+cont_model = contrast(lsmeans(mod, contrast.factor), contrast2, by = NULL)
+contrast.result <- summary(cont_model)
+cont_model_conf_int = confint(cont_model)
+contrast.result[,'lower'] = cont_model_conf_int$lower.CL
+contrast.result[,'upper'] = cont_model_conf_int$upper.CL
+final.result<-rbind(final.result,contrast.result)
+}
+#Cleaning up and applying bonferroni correction to the number
+#of total comparisons investigated.
+final.result$contrast<-mycontrast
+final.result$bonf<-2*final.result$p.value
+final.result$bonf[final.result$bonf>1]<-1
+
+
+final.result
+final.result %>% filter(p.value <= 0.1)
+
+
+#as.factor(as.vector(anova_data[, c('ShortName')]))
 ```
 
 
