@@ -65,13 +65,22 @@ rsq <- 1 - sse / sst
 rsq
 return(c(sst, sse, rsq))
 }
+hasThrownForMoreThan4TDs = Vectorize(function(x){
+  if(is.na(x)){
+    return(FALSE)
+  } 
+  if(x > 3){
+     return (TRUE)
+   }
+  return(FALSE)
+})
 ```
 
 ```{r DEFENSE_HYPER_PARAMS}
 sack_weight = 3
 qb_hit_weight = 1
 interception_weight = 10
-pass_defended_weight = 4 
+pass_defended_weight = 7 
 ```
 
 ```{r LOAD_DEFENSIVE_STATS}
@@ -82,8 +91,17 @@ url_defense_2018 = getURL(position = 7, year=2018)
 
 defensive_columns = c('Team', 'Week', 'TacklesForLoss', 'Sacks', 'QuarterbackHits', 'Interceptions', 'FumblesRecovered', 'Safeties', 'DefensiveTouchdowns', 'SoloTackles', 'AssistedTackles', 'SackYards', 'PassesDefended', 'FumblesForced', 'Opponent', 'FantasyPoints', 'PointsAllowedByDefenseSpecialTeams')
 
-QBCrossSectional = getFootballData(url_offense_2017) %>% filterUnwantedVariables() %>% filter(Position == "QB") %>% addDerivedFeatures()
-QBCrossSectional_2018 = getFootballData(url_offense_2018) %>% filterUnwantedVariables() %>% filter(Position == "QB") %>% addDerivedFeatures()
+QBCrossSectional = getFootballData(url_offense_2017) %>% 
+  filterUnwantedVariables() %>% 
+  filter(Position == "QB") %>% 
+  addDerivedFeatures() %>% 
+  mutate(HasThrownForMoreTDsOrMore = hasThrownForMoreThan4TDs(CumulativeMaxPassingTouchdowns))
+
+QBCrossSectional_2018 = getFootballData(url_offense_2018) %>% 
+  filterUnwantedVariables() %>% 
+  filter(Position == "QB") %>% 
+  addDerivedFeatures() %>% 
+  mutate(HasThrownForMoreTDsOrMore = hasThrownForMoreThan4TDs(CumulativeMaxPassingTouchdowns))
 
 
 DefensiveStats = getFootballData(url_defense_2017) %>% select(defensive_columns) %>% rename('DefensiveFantasyPoints'='FantasyPoints') 
@@ -189,7 +207,7 @@ return(data %>% filter(Week >= start_week & Week < end_week) %>% filter(NextWeek
 ```{r RUN_BASE_LINEAR_MODEL}
 
 #feature ofs interest
-all_model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns',                  'CumulativeAveragePassingRating', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions',   'AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'PlayerID', 'ShortName', 'Week' ,'CumulativeMaxFantasyPoints', 'CumulativeMinFantasyPoints', 'AvgPointsAllowed')
+all_model_cols =  c('NextWeekFantasyPoints', 'AvgPassDefense', 'CumulativeAveragePassingRating', 'CumulativeAveragePassingYards', 'CumulativeAveragePassingTouchdowns', 'CumulativeAveragePassingRating', 'CumulativeAverageCompletionPercentage', 'CumulativeMaxPassingTouchdowns', 'CumulativeMaxPassingYards', 'CumulativeMaxPassingRating', 'CumulativeMaxCompletions',   'AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'PlayerID', 'ShortName', 'Week' ,'CumulativeMaxFantasyPoints', 'CumulativeMinFantasyPoints', 'AvgPointsAllowed', 'HasThrownForMoreTDsOrMore')
 
 
 
@@ -199,16 +217,19 @@ id_cols = c('ShortName', 'PlayerID', 'Week')
 
 #subset of features - hand selected
 
-simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','CumulativeAverageFantasyPoints', 'ShortName', 'PlayerID', 'Week')
+simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','CumulativeAverageFantasyPoints','HasThrownForMoreTDsOrMore', 'ShortName', 'PlayerID', 'Week')
 
 # comment out to run full model
 model_cols = simple_model
+
+
 
 model.data = all_train_data %>% 
   ungroup() %>% 
   filterDataByWeekAndScoreRange() %>% 
   select(model_cols) %>% 
   drop_na()
+
 
 
 model.basic = lm(NextWeekFantasyPoints~., data=model.data %>% select(-id_cols))
@@ -241,10 +262,11 @@ write.csv(plot_data, 'model_data.csv')
 
 ```
 
-```{r RE_FIT_NO_OUTLIERS}
-outliers = model.data[c(228, 23, 151), ]
 
-model.data.no_outliers = model.data[-c(228, 23, 151), ]
+```{r RE_FIT_NO_OUTLIERS}
+outliers = model.data[c(23, 151, 123), ]
+
+model.data.no_outliers = model.data[-c(23, 151, 123), ]
 
 summary(model.data.no_outliers)
 model.basic.no_outliers = lm(NextWeekFantasyPoints~., data=model.data.no_outliers %>% select(-id_cols))
