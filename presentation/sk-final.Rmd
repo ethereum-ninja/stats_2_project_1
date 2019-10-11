@@ -13,6 +13,7 @@ library(purrr)
 library(sqldf)
 library(ggthemes)
 library(glue)
+library(emmeans)
 #load("../analysis/data/.RData")
 
 ```
@@ -411,7 +412,7 @@ write.csv(plot_data, 'model_data.csv')
 #Set the weights of those points to zero, then update the model:
 
 w = abs(rstudent(model.basic)) < 3 & abs(cooks.distance(model.basic)) < 4/nrow(model.basic$model)
-outliers = model.data[not(w),]
+outliers = model.data[!w,]
 model.data.no_outliers = model.data[w,]
 model.basic.no_outliers = update(model.basic, weights=as.numeric(w))
 summary(model.basic.no_outliers)
@@ -440,7 +441,8 @@ plot_data_no_ol %>%
   facet_grid(~ iv, scales = "free_x") +  # Split panels here by `iv`
   theme_bw()
 
-confint(model.basic.no_outliers)
+confint(model.basic.no_outliers, level = 0.90)
+
 write.csv(plot_data_no_ol, 'model_data_no_outliers.csv')
 
 ```
@@ -507,28 +509,32 @@ title('Ridge Cross Validation')
 plot(cv_output_lasso)
 title('Lasso Cross Validation')
 plot(cv_output_ridge$glmnet.fit)
-title('Ridge Predictions')
+title('Ridge Coeff Evloution')
 plot(cv_output_lasso$glmnet.fit)
 title('Lasso Coeff Evolution')
 
 ```
 
 ```{r MODEL_TRAIN_ERROR_RATES}
+library(glue)
+glue('Lasso R2: {round(best_lasso$dev.ratio, 4)}')
+glue('Ridge R2: {round(best_ridge$dev.ratio, 4)}')
+glue('Basic Linear Model R2: {round(summary(model.basic)$r.squared, 4)}')
+glue('Basic Linear Model Adj-R2: {round(summary(model.basic)$adj.r.squared, 4)}')
+glue('Basic Linear Model (ex Outliers) R2: {round(summary(model.basic.no_outliers)$r.squared, 4)}')
+glue('Basic Linear Model (ex Outliers) Adj-R2: {round(summary(model.basic.no_outliers)$adj.r.squared, 4)}')
 
-best_lasso$dev.ratio
-best_ridge$dev.ratio
-summary(model.basic)$r.squared
-summary(model.basic)$adj.r.squared
-summary(model.basic.no_outliers)$r.squared
-summary(model.basic.no_outliers)$adj.r.squared
 
+#summary(model.basic)$adj.r.squared
+#summary(model.basic.no_outliers)$r.squared
+#summary(model.basic.no_outliers)$adj.r.squared
 
 ```
 
 ```{r MODEL_COEFFS_RIDGE}
 coef(best_ridge)
 ```
-```{r MODEL_COEFFS_RIDGE}
+```{r MODEL_COEFFS_LASSO}
 coef(best_lasso)
 ```
 
@@ -635,11 +641,18 @@ library(limma)
 
 anova_data$ShortName = as.factor(anova_data$ShortName)
 anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
-
+home_mod = lm(FantasyPoints ~ TeamIsHome, data=anova_data)
+player_mod = lm(FantasyPoints ~ ShortName, data=anova_data)
 mod = lm(FantasyPoints ~ TeamIsHome + ShortName +TeamIsHome*ShortName, data=anova_data)
+
 qbs = as.factor(anova_data$ShortName)
 home_away = as.factor(anova_data$TeamIsHome)
-        
+
+aov.res.home = aov(home_mod)
+drop1(home_mod, .~., test='F')
+
+aov.res.player = aov(player_mod)
+drop1(player_mod, .~., test='F')
 
 aov.res = aov(mod)
 drop1(mod, .~., test='F')
