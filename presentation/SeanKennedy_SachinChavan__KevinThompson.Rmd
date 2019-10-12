@@ -14,6 +14,8 @@ library(sqldf)
 library(ggthemes)
 library(glue)
 library(emmeans)
+library(limma)
+library(ggpubr)
 #load("../analysis/data/.RData")
 
 ```
@@ -22,7 +24,17 @@ library(emmeans)
 ### Helper functions
 
 ```{r HELPER_FUNCTIONS}
+
 '%ni%' <- Negate('%in%')
+
+filterDataByWeekAndScoreRange = function(data){
+start_week = 3 # starting in week3 seems to smooth the averages (or we could use custom lags) 
+end_week = 17
+min_score = 0
+max_score = max(all_test_data$NextWeekFantasyPoints, na.rm = TRUE)
+return(data %>% 
+         filter(Week >= start_week & Week < end_week) %>%        filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score))
+}
 # 7 = team defense
 # 1 = offensive positions
 getURL = function(position = 1, year = 2017){
@@ -168,8 +180,6 @@ hasThrownForMoreThan4TDs = Vectorize(function(x){
 
 ```{r RE_LOAD_DATA}
 #Kev's stuff was dropping observations
-
-
 #need this for creating full defensive set
 QBCrossSectional_ALL_OBSERVATIONS = getFootballPlayersJSON("https://fantasydata.com/FantasyStatsNFL/FantasyStats_Read?sort=FantasyPoints-desc&pageSize=5000&group=&filter=&filters.position=2&filters.team=&filters.teamkey=&filters.season=2017&filters.seasontype=1&filters.scope=2&filters.subscope=1&filters.redzonescope=&filters.scoringsystem=&filters.leaguetype=&filters.searchtext=&filters.week=&filters.startweek=1&filters.endweek=17&filters.minimumsnaps=&filters.teamaspect=&filters.stattype=&filters.exportType=&filters.desktop=&filters.dfsoperator=&filters.dfsslateid=&filters.dfsslategameid=&filters.dfsrosterslot=&filters.page=&filters.showfavs=&filters.posgroup=&filters.oddsstate=&filters.aggregatescope=1&filters.rangescope=&filters.range=1")
 QBCrossSectional_ALL_OBSERVATIONS = map(QBCrossSectional_ALL_OBSERVATIONS, removeColumnsWithWrongLength)
@@ -185,7 +195,6 @@ QBCrossSectional_ALL_OBSERVATIONS_2016 = map(QBCrossSectional_ALL_OBSERVATIONS_2
 QBCrossSectional_ALL_OBSERVATIONS_2016 = map_df(QBCrossSectional_ALL_OBSERVATIONS_2016, as_tibble) 
 
 ```
-
 
 
 ```{r DEFENSE_HYPER_PARAMS}
@@ -335,19 +344,6 @@ write.csv(all_test_data, 'test_data.csv')
 write.csv(DefensiveStats %>% union_all(DefensiveStats_2018), 'defense.csv')
 
 ```
-
-
-```{r MODEL_FILTERING_PARAMETERS}
-filterDataByWeekAndScoreRange = function(data){
-start_week = 3 # starting in week3 seems to smooth the averages (or we could use custom lags) 
-end_week = 17
-min_score = 0
-max_score = max(all_test_data$NextWeekFantasyPoints, na.rm = TRUE)
-
-return(data %>% filter(Week >= start_week & Week < end_week) %>% filter(NextWeekFantasyPoints > min_score & NextWeekFantasyPoints < max_score))
-}
-```
-
 
 ```{r RUN_BASE_LINEAR_MODEL}
 
@@ -524,11 +520,6 @@ glue('Basic Linear Model Adj-R2: {round(summary(model.basic)$adj.r.squared, 4)}'
 glue('Basic Linear Model (ex Outliers) R2: {round(summary(model.basic.no_outliers)$r.squared, 4)}')
 glue('Basic Linear Model (ex Outliers) Adj-R2: {round(summary(model.basic.no_outliers)$adj.r.squared, 4)}')
 
-
-#summary(model.basic)$adj.r.squared
-#summary(model.basic.no_outliers)$r.squared
-#summary(model.basic.no_outliers)$adj.r.squared
-
 ```
 
 ```{r MODEL_COEFFS_RIDGE}
@@ -635,9 +626,7 @@ anova_data %>% group_by(ShortName, TeamIsHome) %>% summarise('AvgPoints'= mean(F
 
 ```
 
-```{r}
-library(limma)
-
+```{r ANOVAS}
 
 anova_data$ShortName = as.factor(anova_data$ShortName)
 anova_data$TeamIsHome = as.factor(anova_data$TeamIsHome)
@@ -657,14 +646,14 @@ drop1(player_mod, .~., test='F')
 aov.res = aov(mod)
 drop1(mod, .~., test='F')
 
-TukeyHSD(aov.res, which = "TeamIsHome:ShortName")
+#TukeyHSD(aov.res, which = "TeamIsHome:ShortName")
 
 #contrasts(interaction_player_home_away)
 
 
 ```
 
-```{r}
+```{r CONTRASTS}
 final.result=c()
 attach(anova_data, warn.conflicts = FALSE)
 contrast.factor=~ShortName*TeamIsHome
@@ -702,7 +691,8 @@ final.result$bonf=2*final.result$p.value
 final.result$bonf[final.result$bonf>1]=1
 
 
-final.result %>% filter(p.value <= 0.1)
+head(final.result %>% filter(p.value <= 0.1), 10)
+
 
 
 final.result %>% filter(n()>0)
@@ -920,9 +910,6 @@ ggplot(data = corr_data, aes(Var2, Var1, fill = value))+
  coord_fixed() +
   geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) +
   ggtitle('Pearson Correlation for Model Features')
-
-
-
 
 
 corr_data_all = all_train_data %>% drop_na() %>% select(c('AvgPassDefense', 'NextWeekFantasyPoints', 'AvgQBPointsAllowed', 'AvgPointsAllowed')) %>% ungroup() %>% select(-c('PlayerID')) 
