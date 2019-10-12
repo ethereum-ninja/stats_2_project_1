@@ -358,7 +358,7 @@ id_cols = c('ShortName', 'PlayerID', 'Week')
 
 #subset of features - hand/LASSO selected
 
-simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','HasThrownFoFourTDsOrMore', 'CumulativeAverageFantasyPoints', 'ShortName', 'PlayerID', 'Week')
+simple_model =  c('NextWeekFantasyPoints', 'AvgPassDefense','HasThrownFoFourTDsOrMore','AvgQBPointsAllowed', 'CumulativeAverageFantasyPoints', 'CumulativeMinFantasyPoints', 'ShortName', 'PlayerID', 'Week')
 
 # comment out to run full model
 model_cols = simple_model # all_model_cols
@@ -475,7 +475,7 @@ test_Y = all.model.data.test$NextWeekFantasyPoints
 lambda_seq = 10^seq(2, -2, by = -.1)
 
 cv_output_lasso = cv.glmnet(train_X, train_Y, 
-            alpha = 1, nfolds=40, lambda = lambda_seq, weights = as.numeric(w))
+            alpha = 1, nfolds=100, lambda = lambda_seq, weights = as.numeric(w))
 
 # identifying best lamda
 best_lam_lasso = cv_output_lasso$lambda.min
@@ -486,7 +486,7 @@ final_lasso = cbind(test_Y, pred_lasso)
 
 #ridge_lambda = 10^seq(10, -2, length = 100)
 cv_output_ridge = cv.glmnet(train_X, train_Y, 
-            alpha = 0, nfolds=40, lambda = lambda_seq, weights = as.numeric(w))
+            alpha = 0, nfolds=100, lambda = lambda_seq, weights = as.numeric(w))
 
 best_lam_ridge = cv_output_ridge$lambda.min
 best_ridge = glmnet(train_X, train_Y, alpha = 0, lambda = best_lam_ridge, weights = as.numeric(w))
@@ -531,6 +531,7 @@ coef(best_lasso)
 
 ```{r MODEL_COEFFS_LASSO_ALL_OBS}
 coef(model.basic)
+
 ```
 
 ```{r MODEL_COEFFS_NO_OUTLIERS_OBS}
